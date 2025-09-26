@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # app:
+  #   container_name: app
+  #   build: .
+  #   depends_on:
+  #     - clickhouse
+  #     - redis
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     CLICKHOUSE_HOST: clickhouse
+  #     CLICKHOUSE_USER: default
+  #     CLICKHOUSE_PASS: pass
+  #     REDIS_HOST: redis
+  #   command: >
+  #     bash -c "
+  #       poetry run init_clickhouse &&
+  #       poetry run uvicorn pypi_clickhouse_analytics.main:app --host 0.0.0.0 --port 8000
+  #     "
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # Native TCP interface
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: pass
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: [ "redis-server", "--appendonly", "yes" ]
+
+volumes:
+  clickhouse_data:
+  redis_data:
