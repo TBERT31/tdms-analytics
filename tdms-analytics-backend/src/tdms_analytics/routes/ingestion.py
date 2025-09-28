@@ -7,8 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from ..dependencies.clickhouse import get_clickhouse_client
 from ..clients.clickhouse import ClickHouseClient
-from ..repos.dataset_repo import DatasetRepository
-from ..utils.io_tdms import tdms_to_clickhouse
+from ..utils.io_tdms import tdms_to_clickhouse_simple
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +19,7 @@ async def ingest_tdms_file(
     file: UploadFile = File(...),
     clickhouse_client: ClickHouseClient = Depends(get_clickhouse_client),
 ) -> Dict[str, Any]:
-    """Ingest TDMS file into ClickHouse."""
+    """Simplified TDMS file ingestion."""
     if not file.filename or not file.filename.endswith(('.tdms', '.TDMS')):
         raise HTTPException(400, "Only TDMS files are supported")
 
@@ -31,27 +30,23 @@ async def ingest_tdms_file(
             tmp_file.write(content)
             tmp_file.flush()
             
-            # Generate new dataset ID
-            dataset_repo = DatasetRepository(clickhouse_client)
-            dataset_id = clickhouse_client.new_dataset_id()
+            logger.info(f"Starting simplified TDMS ingestion for {file.filename}")
             
-            logger.info(f"Starting TDMS ingestion for dataset {dataset_id}")
-            
-            # Process TDMS file
-            channels_meta = tdms_to_clickhouse(
+            # Process TDMS file with simplified approach
+            result = tdms_to_clickhouse_simple(
                 tmp_file.name, 
-                dataset_id, 
                 file.filename,
                 clickhouse_client
             )
             
-            logger.info(f"Ingestion completed: {len(channels_meta)} channels")
+            logger.info(f"Ingestion completed: {result['channels_processed']} channels, {result['total_points']} points")
             
             return {
-                "dataset_id": str(dataset_id),
                 "filename": file.filename,
-                "channels_count": len(channels_meta),
-                "channels": channels_meta
+                "status": "success",
+                "channels_processed": result["channels_processed"],
+                "total_points": result["total_points"],
+                "processing_time": result["processing_time"]
             }
             
         except Exception as e:

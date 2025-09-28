@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class ClickHouseClient:
-    """Thread-safe ClickHouse client using clickhouse-connect."""
+    """ClickHouse client with flat table architecture."""
 
     def __init__(self):
         self._client: Optional[Client] = None
@@ -28,41 +28,29 @@ class ClickHouseClient:
     def _ensure_database_exists(self) -> None:
         """Create database if it doesn't exist."""
         try:
-            # Connect without specific database to create it
             admin_client = clickhouse_connect.get_client(
                 host=app_settings.clickhouse_host,
                 port=app_settings.clickhouse_port,
                 username=app_settings.clickhouse_user,
                 password=app_settings.clickhouse_password,
-                # Ne pas spécifier de database ici
             )
-            
-            # Créer la base de données
             admin_client.command(f"CREATE DATABASE IF NOT EXISTS {self.database}")
             logger.info(f"Database {self.database} created/verified")
-            
-            # Fermer la connexion admin
             admin_client.close()
-            
         except Exception as e:
             logger.error(f"Database creation failed: {e}")
             raise ClickHouseConnectionError(f"Database creation failed: {e}") from e
 
     def _connect(self) -> None:
-        """Establish ClickHouse connection to the specific database."""
+        """Establish ClickHouse connection."""
         try:
             self._client = clickhouse_connect.get_client(
                 host=app_settings.clickhouse_host,
                 port=app_settings.clickhouse_port,
                 username=app_settings.clickhouse_user,
                 password=app_settings.clickhouse_password,
-                database=self.database,  # Maintenant la base existe
+                database=self.database,
                 compress=True,
-                settings={
-                    "async_insert": 1,
-                    "wait_for_async_insert": 0,
-                    "max_insert_block_size": app_settings.max_insert_block_size,
-                }
             )
             logger.info(f"ClickHouse connection established to database {self.database}")
         except Exception as e:
@@ -92,59 +80,28 @@ class ClickHouseClient:
                 raise
 
     def _create_tables(self) -> None:
-        """Create all required tables and views."""
-        tables = {
-            "datasets": f"""
-                CREATE TABLE IF NOT EXISTS datasets (
-                    dataset_id   UUID,
-                    filename     String,
-                    created_at   DateTime64(3),
-                    total_points UInt64
-                ) ENGINE = MergeTree()
-                ORDER BY dataset_id
-            """,
-            "channels": f"""
-                CREATE TABLE IF NOT EXISTS channels (
-                    channel_id   UUID,
-                    dataset_id   UUID,
-                    group_name   String,
-                    channel_name String,
-                    unit         String,
-                    has_time     UInt8,
-                    n_rows       UInt64
-                ) ENGINE = MergeTree()
-                ORDER BY (dataset_id, channel_id)
-            """,
-            "sensor_data": f"""
-                CREATE TABLE IF NOT EXISTS sensor_data (
-                    dataset_id     UUID,
-                    channel_id     UUID,
-                    timestamp      DateTime64(6) DEFAULT toDateTime64(0, 6),
-                    sample_index   UInt64 DEFAULT 0,
-                    value          Float64,
-                    is_time_series UInt8 DEFAULT 0
-                ) ENGINE = MergeTree()
-                PARTITION BY dataset_id
-                ORDER BY (channel_id, is_time_series, timestamp, sample_index)
-                SETTINGS index_granularity = 8192
-            """
-        }
+        """Create simplified table structure."""
+        sensor_readings_table = f"""
+            CREATE TABLE IF NOT EXISTS sensor_readings (
+                filename String,
+                group_name String,
+                channel_name String,
+                unit String,
+                sample_index UInt64,
+                value Float64,
+                ingestion_time DateTime DEFAULT now()
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(ingestion_time)
+            ORDER BY (filename, group_name, channel_name, sample_index)
+            SETTINGS index_granularity = 8192
+        """
 
-        for table_name, ddl in tables.items():
-            try:
-                self._execute(ddl)
-                logger.info(f"Table {table_name} created/verified")
-            except Exception as e:
-                logger.error(f"Failed to create table {table_name}: {e}")
-                raise
-
-    def new_dataset_id(self) -> UUID:
-        """Generate new dataset UUID."""
-        return uuid4()
-
-    def new_channel_id(self) -> UUID:
-        """Generate new channel UUID."""
-        return uuid4()
+        try:
+            self._execute(sensor_readings_table)
+            logger.info("Table sensor_readings created/verified")
+        except Exception as e:
+            logger.error(f"Failed to create table sensor_readings: {e}")
+            raise
 
     def health_check(self) -> bool:
         """Check if ClickHouse is healthy."""
