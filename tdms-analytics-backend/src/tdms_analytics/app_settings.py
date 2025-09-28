@@ -33,8 +33,10 @@ class AppSettings(BaseSettings):
     default_limit: int = Field(default=50000, description="Default limit for data fetch")
 
     # Performance Settings
-    chunk_size: int = Field(default=250000, description="Chunk size for bulk inserts")
-    max_insert_block_size: int = Field(default=1000000, description="ClickHouse insert block size")
+    chunk_size: int = Field(default=1000000, description="Chunk size for bulk inserts")
+    max_insert_block_size: int = Field(default=10000000, description="ClickHouse insert block size")
+    max_threads: int = Field(default=8, description="ClickHouse max threads")
+    parallel_workers: int = Field(default=4, description="Number of parallel workers for channel processing")
 
     # Application Settings
     log_level: str = Field(default="INFO", description="Logging level")

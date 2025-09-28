@@ -230,7 +230,7 @@ def _insert_sensor_data(
     sensor_repo: SensorDataRepository
 ) -> None:
     """
-    Insert sensor data into ClickHouse using columnar format.
+    Insert sensor data into ClickHouse using Arrow columnar path.
     """
     try:
         n_rows = channel_data["n_rows"]
@@ -238,38 +238,43 @@ def _insert_sensor_data(
         has_time = channel_data["has_time"]
         values = channel_data["values"]
         timestamps = channel_data["timestamps"]
-        
+
+        if n_rows == 0:
+            return
+
         if has_time:
-            # Convert timestamps to string format for ClickHouse DateTime64
+            # Garder un type temporel performant : int64 microsecondes
             if isinstance(timestamps, pd.DatetimeIndex):
-                ts_strings = timestamps.strftime("%Y-%m-%d %H:%M:%S.%f")
+                ts_pd = timestamps
             else:
-                ts_pd = pd.to_datetime(timestamps)
-                ts_strings = ts_pd.strftime("%Y-%m-%d %H:%M:%S.%f")
-                
+                ts_pd = pd.to_datetime(timestamps, utc=False)
+
+            # pandas datetime64[ns] -> int64 microsecondes
+            ts_us = (ts_pd.view("int64") // 1000).astype("int64")
+
             data_dict = {
-                "dataset_id": [dataset_id] * n_rows,
-                "channel_id": [channel_id] * n_rows,
-                "timestamp": ts_strings,
+                # UUID envoyés comme strings côté Arrow (conversion rapide côté CH)
+                "dataset_id": [str(dataset_id)] * n_rows,
+                "channel_id": [str(channel_id)] * n_rows,
+                "timestamp": ts_us,                         # int64 (us) -> Arrow timestamp(us)
                 "sample_index": np.zeros(n_rows, dtype=np.uint64),
-                "value": values,
-                "is_time_series": np.ones(n_rows, dtype=np.uint8)
+                "value": values.astype(np.float64, copy=False),
+                "is_time_series": np.ones(n_rows, dtype=np.uint8),
             }
             columns = ["dataset_id", "channel_id", "timestamp", "sample_index", "value", "is_time_series"]
         else:
-            # Use sample indices
             data_dict = {
-                "dataset_id": [dataset_id] * n_rows,
-                "channel_id": [channel_id] * n_rows,
-                "sample_index": timestamps.astype(np.uint64),
-                "value": values,
-                "is_time_series": np.zeros(n_rows, dtype=np.uint8)
+                "dataset_id": [str(dataset_id)] * n_rows,
+                "channel_id": [str(channel_id)] * n_rows,
+                "sample_index": np.asarray(timestamps, dtype=np.uint64),
+                "value": values.astype(np.float64, copy=False),
+                "is_time_series": np.zeros(n_rows, dtype=np.uint8),
             }
             columns = ["dataset_id", "channel_id", "sample_index", "value", "is_time_series"]
-            
-        # Insert using columnar format
+
+        # Insert using Arrow columnar fast path
         sensor_repo.bulk_insert_columnar(columns, data_dict)
-        
+
     except Exception as e:
         logger.error(f"Error inserting sensor data for channel {channel_data['channel_name']}: {e}")
         raise IngestionError(f"Failed to insert sensor data: {str(e)}") from e

@@ -4,8 +4,6 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
 import clickhouse_connect
-import numpy as np
-import pandas as pd
 from clickhouse_connect.driver import Client
 
 from ..app_settings import app_settings
@@ -24,26 +22,20 @@ class ClickHouseClient:
         self._ensure_database_exists()
         self._connect()
         self._create_tables()
+        self._apply_session_settings()
 
     def _ensure_database_exists(self) -> None:
         """Create database if it doesn't exist."""
         try:
-            # Connect without specific database to create it
             admin_client = clickhouse_connect.get_client(
                 host=app_settings.clickhouse_host,
                 port=app_settings.clickhouse_port,
                 username=app_settings.clickhouse_user,
                 password=app_settings.clickhouse_password,
-                # Ne pas spécifier de database ici
             )
-            
-            # Créer la base de données
             admin_client.command(f"CREATE DATABASE IF NOT EXISTS {self.database}")
             logger.info(f"Database {self.database} created/verified")
-            
-            # Fermer la connexion admin
             admin_client.close()
-            
         except Exception as e:
             logger.error(f"Database creation failed: {e}")
             raise ClickHouseConnectionError(f"Database creation failed: {e}") from e
@@ -56,18 +48,26 @@ class ClickHouseClient:
                 port=app_settings.clickhouse_port,
                 username=app_settings.clickhouse_user,
                 password=app_settings.clickhouse_password,
-                database=self.database,  # Maintenant la base existe
+                database=self.database,
                 compress=True,
                 settings={
                     "async_insert": 1,
                     "wait_for_async_insert": 0,
                     "max_insert_block_size": app_settings.max_insert_block_size,
-                }
+                    "max_threads": app_settings.max_threads,
+                },
             )
             logger.info(f"ClickHouse connection established to database {self.database}")
         except Exception as e:
             logger.error(f"Failed to connect to ClickHouse: {e}")
             raise ClickHouseConnectionError(f"Connection failed: {e}") from e
+
+    def _apply_session_settings(self) -> None:
+        """Optional: enforce a few session-level settings explicitly."""
+        try:
+            self._execute("SET max_threads = %(t)s", {"t": app_settings.max_threads})
+        except Exception as e:
+            logger.warning(f"Could not apply session settings: {e}")
 
     def _execute(self, query: str, parameters: Optional[Dict[str, Any]] = None) -> Any:
         """Thread-safe query execution."""
@@ -81,7 +81,7 @@ class ClickHouseClient:
                 raise
 
     def _insert(self, table: str, data: List[List[Any]], column_names: List[str]) -> None:
-        """Thread-safe data insertion."""
+        """Thread-safe data insertion (row-based fallback)."""
         with self._lock:
             if not self._client:
                 raise ClickHouseConnectionError("No active connection")
@@ -90,6 +90,22 @@ class ClickHouseClient:
             except Exception as e:
                 logger.error(f"Insert failed: {e}")
                 raise
+
+    # ======= AJOUT : insertion Arrow columnaire =======
+    def insert_arrow_table(self, table_name: str, arrow_table) -> None:
+        """
+        Insert a pyarrow.Table using ClickHouse native Arrow path.
+        """
+        with self._lock:
+            if not self._client:
+                raise ClickHouseConnectionError("No active connection")
+            try:
+                # clickhouse-connect >= 0.6.6 expose insert_arrow
+                self._client.insert_arrow(table_name, arrow_table)
+            except Exception as e:
+                logger.error(f"Arrow insert failed: {e}")
+                raise
+    # ================================================
 
     def _create_tables(self) -> None:
         """Create all required tables and views."""
@@ -115,6 +131,7 @@ class ClickHouseClient:
                 ) ENGINE = MergeTree()
                 ORDER BY (dataset_id, channel_id)
             """,
+            # DDL renforcé pour de bonnes lectures par dataset + temps
             "sensor_data": f"""
                 CREATE TABLE IF NOT EXISTS sensor_data (
                     dataset_id     UUID,
@@ -125,9 +142,9 @@ class ClickHouseClient:
                     is_time_series UInt8 DEFAULT 0
                 ) ENGINE = MergeTree()
                 PARTITION BY dataset_id
-                ORDER BY (channel_id, is_time_series, timestamp, sample_index)
+                ORDER BY (dataset_id, channel_id, is_time_series, timestamp, sample_index)
                 SETTINGS index_granularity = 8192
-            """
+            """,
         }
 
         for table_name, ddl in tables.items():
