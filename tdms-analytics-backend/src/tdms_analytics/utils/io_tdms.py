@@ -11,6 +11,8 @@ from uuid import UUID
 import numpy as np
 import pandas as pd
 from nptdms import TdmsFile
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from ..app_settings import app_settings
 
 from ..clients.clickhouse import ClickHouseClient
 from ..entities.channel import ChannelCreate
@@ -90,8 +92,9 @@ def tdms_to_clickhouse(
             
             # Insert channels and sensor data
             channels_meta = []
+            to_build = []
+
             for channel_data in channels_data:
-                # Create channel record
                 channel_create = ChannelCreate(
                     dataset_id=dataset_id,
                     group_name=channel_data["group_name"],
@@ -100,16 +103,11 @@ def tdms_to_clickhouse(
                     has_time=channel_data["has_time"],
                     n_rows=channel_data["n_rows"]
                 )
-                
                 channel = channel_repo.create(channel_data["channel_id"], channel_create)
-                
-                # Insert sensor data if we have any
+
                 if channel_data["n_rows"] > 0:
-                    _insert_sensor_data(
-                        channel_data, dataset_id, sensor_repo
-                    )
-                
-                # Prepare metadata for response
+                    to_build.append(channel_data)
+
                 channels_meta.append({
                     "channel_id": str(channel.id),
                     "group_name": channel.group_name,
@@ -118,6 +116,27 @@ def tdms_to_clickhouse(
                     "has_time": channel.has_time,
                     "n_rows": channel.n_rows
                 })
+
+            # 1) Prépare les data_dict en parallèle
+            prepared: List[Dict[str, Any]] = []
+            if to_build:
+                with ThreadPoolExecutor(max_workers=app_settings.parallel_workers) as ex:
+                    futures = [ex.submit(_build_data_dict_for_channel, ch, dataset_id) for ch in to_build]
+                    for fut in as_completed(futures):
+                        dd = fut.result()
+                        if dd:
+                            prepared.append(dd)
+
+            # 2) Concatène par gros batches et insère (vrai Arrow en-dessous)
+            #    On garde la taille de lignes cible via app_settings.chunk_size
+            if prepared:
+                # Concat global (tous canaux), puis la repo va découper en chunks de chunk_size
+                big = _concat_dicts(prepared)
+                sensor_repo.bulk_insert_columnar(
+                    ["dataset_id", "channel_id", "timestamp", "sample_index", "value", "is_time_series"],
+                    big,
+                    chunk_size=app_settings.chunk_size
+                )
                 
                 logger.info(
                     f"Processed channel {channel.channel_name} "
@@ -223,6 +242,70 @@ def _process_tdms_channel(
         logger.error(f"Error processing channel {group_name}/{channel.name}: {e}")
         return None
 
+def _build_data_dict_for_channel(
+    channel_data: Dict[str, Any],
+    dataset_id: UUID,
+) -> Dict[str, Any]:
+    """
+    Construit un data_dict prêt pour Arrow pour 1 canal.
+    Normalise les colonnes pour pouvoir concaténer entre canaux.
+    Colonnes finales : dataset_id, channel_id, timestamp(us), sample_index, value, is_time_series
+    """
+    n_rows = channel_data["n_rows"]
+    if n_rows == 0:
+        return None
+
+    channel_id = channel_data["channel_id"]
+    has_time = channel_data["has_time"]
+    values = channel_data["values"]
+    timestamps = channel_data["timestamps"]
+
+    if has_time:
+        ts_pd = timestamps if isinstance(timestamps, pd.DatetimeIndex) else pd.to_datetime(timestamps, utc=False)
+        ts_us = (ts_pd.view("int64") // 1000).astype("int64")
+        sample_index = np.zeros(n_rows, dtype=np.uint64)
+        is_ts = np.ones(n_rows, dtype=np.uint8)
+        ts_col = ts_us  # int64 microseconds
+    else:
+        sample_index = np.asarray(timestamps, dtype=np.uint64)
+        is_ts = np.zeros(n_rows, dtype=np.uint8)
+        # on fixe un timestamp us = 0 pour normaliser la forme ; il sera ignoré (is_time_series=0)
+        ts_col = np.zeros(n_rows, dtype=np.int64)
+
+    return {
+        "dataset_id": [str(dataset_id)] * n_rows,
+        "channel_id": [str(channel_id)] * n_rows,
+        "timestamp": ts_col,
+        "sample_index": sample_index,
+        "value": values.astype(np.float64, copy=False),
+        "is_time_series": is_ts,
+    }
+
+
+def _concat_dicts(dicts: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Concatène une liste de data_dict homogènes (mêmes clés).
+    """
+    if not dicts:
+        return {}
+
+    out: Dict[str, Any] = {}
+    keys = ["dataset_id", "channel_id", "timestamp", "sample_index", "value", "is_time_series"]
+    for k in keys:
+        col = []
+        for d in dicts:
+            v = d[k]
+            if isinstance(v, np.ndarray):
+                col.append(v)
+            else:
+                # listes pour UUID/strings
+                col.extend(v)
+                continue
+        if col and isinstance(col[0], np.ndarray):
+            out[k] = np.concatenate(col, axis=0)
+        else:
+            out[k] = col
+    return out
 
 def _insert_sensor_data(
     channel_data: Dict[str, Any],
