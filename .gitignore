@@ -41,25 +41,25 @@ htmlcov/
 .ipynb_checkpoints/
 
 # Artéfacts de l’app
-tdms-backend/db.sqlite
-tdms-backend/tmp/
-tdms-backend/data/**        # parquet générés
-!tdms-backend/data/.gitkeep # garde le dossier vide si besoin
+tdms-analytics-backend/db.sqlite
+tdms-analytics-backend/tmp/
+tdms-analytics-backend/data/**        # parquet générés
+!tdms-analytics-backend/data/.gitkeep # garde le dossier vide si besoin
 
 # -----------------------------
 # Node / Next.js (tdms-analytics-frontend)
 # -----------------------------
-tdms-frontend/node_modules/
-tdms-frontend/.next/
-tdms-frontend/.turbo/
-tdms-frontend/out/
-tdms-frontend/.vercel/
-tdms-frontend/.eslintcache
-tdms-frontend/.swc/
-tdms-frontend/coverage/
+tdms-analytics-frontend/node_modules/
+tdms-analytics-frontend/.next/
+tdms-analytics-frontend/.turbo/
+tdms-analytics-frontend/out/
+tdms-analytics-frontend/.vercel/
+tdms-analytics-frontend/.eslintcache
+tdms-analytics-frontend/.swc/
+tdms-analytics-frontend/coverage/
 
 # (Ne PAS ignorer package-lock.json — commit-le)
-# !tdms-frontend/package-lock.json  # <- juste un rappel, pas nécessaire
+# !tdms-analytics-frontend/package-lock.json  # <- juste un rappel, pas nécessaire
 
 # -----------------------------
 # Données lourdes / binaires
