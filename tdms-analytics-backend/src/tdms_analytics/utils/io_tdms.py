@@ -106,7 +106,9 @@ def tdms_to_clickhouse(
                 channel = channel_repo.create(channel_data["channel_id"], channel_create)
 
                 if channel_data["n_rows"] > 0:
-                    to_build.append(channel_data)
+                    _insert_sensor_data(
+                        channel_data, dataset_id, sensor_repo
+                    )
 
                 channels_meta.append({
                     "channel_id": str(channel.id),
@@ -116,27 +118,6 @@ def tdms_to_clickhouse(
                     "has_time": channel.has_time,
                     "n_rows": channel.n_rows
                 })
-
-            # 1) Prépare les data_dict en parallèle
-            prepared: List[Dict[str, Any]] = []
-            if to_build:
-                with ThreadPoolExecutor(max_workers=app_settings.parallel_workers) as ex:
-                    futures = [ex.submit(_build_data_dict_for_channel, ch, dataset_id) for ch in to_build]
-                    for fut in as_completed(futures):
-                        dd = fut.result()
-                        if dd:
-                            prepared.append(dd)
-
-            # 2) Concatène par gros batches et insère (vrai Arrow en-dessous)
-            #    On garde la taille de lignes cible via app_settings.chunk_size
-            if prepared:
-                # Concat global (tous canaux), puis la repo va découper en chunks de chunk_size
-                big = _concat_dicts(prepared)
-                sensor_repo.bulk_insert_columnar(
-                    ["dataset_id", "channel_id", "timestamp", "sample_index", "value", "is_time_series"],
-                    big,
-                    chunk_size=app_settings.chunk_size
-                )
                 
                 logger.info(
                     f"Processed channel {channel.channel_name} "
