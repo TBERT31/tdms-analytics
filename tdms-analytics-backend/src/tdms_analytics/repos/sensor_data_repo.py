@@ -145,7 +145,7 @@ class SensorDataRepository:
                 query += " AND sample_index >= %(start_idx)s"
                 params["start_idx"] = int(start_timestamp)
             if end_timestamp is not None:
-                query += " AND sample_index <= %(end_idx)s)"
+                query += " AND sample_index <= %(end_idx)s"
                 params["end_idx"] = int(end_timestamp)
             query += " ORDER BY sample_index LIMIT %(limit)s"
             params["limit"] = limit
