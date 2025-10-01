@@ -38,6 +38,11 @@ class AppSettings(BaseSettings):
     max_threads: int = Field(default=8, description="ClickHouse max threads")
     parallel_workers: int = Field(default=4, description="Number of parallel workers for channel processing")
 
+    # Compression Settings
+    gzip_enabled: bool = True
+    gzip_min_size: int = 2048      # 2 KiB
+    gzip_level: int = 6 
+
     # Application Settings
     log_level: str = Field(default="INFO", description="Logging level")
     debug: bool = Field(default=False, description="Debug mode")

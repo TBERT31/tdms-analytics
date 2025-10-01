@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from .app_settings import app_settings
 
 from .routes import channels, data_windows, datasets, health, ingestion
 
@@ -35,6 +37,14 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # GZip middleware
+    if app_settings.gzip_enabled:
+        app.add_middleware(
+            GZipMiddleware,
+            minimum_size=app_settings.gzip_min_size,
+            compresslevel=app_settings.gzip_level,
+        )
 
     # Include routers
     app.include_router(health.router, tags=["Health"])

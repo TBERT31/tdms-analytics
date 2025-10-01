@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from uuid import UUID
 
 import numpy as np
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..app_settings import app_settings
 from ..clients.clickhouse import ClickHouseClient
@@ -13,6 +13,10 @@ from ..enums.downsampling import DownsamplingMethod
 from ..exceptions.tdms_exceptions import ChannelNotFoundError
 from ..repos.sensor_data_repo import SensorDataRepository
 from ..utils.lttb import smart_downsample_production
+from ..utils.arrow_response import (
+    client_wants_arrow,
+    dataframe_to_arrow_streaming_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +25,7 @@ router = APIRouter()
 
 @router.get("/window")
 async def get_window(
+    request: Request,
     channel_id: UUID = Query(..., description="UUID du canal"),
     start: Optional[str] = Query(None, description="ISO date si has_time"),
     end: Optional[str] = Query(None, description="ISO date si has_time"),
@@ -118,6 +123,13 @@ async def get_window(
             min_time = df["time"].min()
             df["time"] = df["time"] - min_time
 
+        # --------- BRANCHE ARROW ----------
+        if client_wants_arrow(request):
+            # On renvoie uniquement les colonnes utiles. Si tu ajoutes plus tard v_min/v_max,
+            # tu peux faire df[["time","value","v_min","v_max"]] tant que ces colonnes existent.
+            arrow_df = df[["time", "value"]].copy()
+            return dataframe_to_arrow_streaming_response(arrow_df, filename="window.arrow")
+
         return {
             "x": df["time"].astype(float if has_time else int).tolist(),
             "y": df["value"].astype(float).tolist(),
@@ -126,6 +138,7 @@ async def get_window(
             "x_unit": "s" if relative else "",
             "method": method.value,
             "original_points": original_points,
+            "returned_points": len(df),
             "returned_points": len(df),
         }
 
@@ -138,6 +151,7 @@ async def get_window(
 
 @router.get("/get_window_filtered")
 async def get_window_filtered(
+    request: Request,
     channel_id: UUID = Query(..., description="UUID du canal"),
     start_timestamp: Optional[float] = Query(None, description="Timestamp Unix de début"),
     end_timestamp: Optional[float] = Query(None, description="Timestamp Unix de fin"),
@@ -221,6 +235,11 @@ async def get_window_filtered(
                 "method": method.value,
                 "performance": {"optimization": "clickhouse_native"},
             }
+        
+        # --------- BRANCHE ARROW ----------
+        if client_wants_arrow(request):
+            arrow_df = df[["time", "value"]].copy()
+            return dataframe_to_arrow_streaming_response(arrow_df, filename="window_filtered.arrow")
 
         return {
             "x": df["time"].astype(float if time_range.has_time else int).tolist(),
