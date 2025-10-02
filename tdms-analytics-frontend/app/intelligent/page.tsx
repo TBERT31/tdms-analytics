@@ -14,6 +14,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function IntelligentPage() {
+  
+  const {
+    globalPoints,
+    setGlobalPoints,
+    zoomPoints,
+    setZoomPoints,
+    initialLimit,
+    setInitialLimit,
+    showAdvancedSettings,
+    setShowAdvancedSettings,
+    backendConstraints,
+    validateParam,
+    resetToDefaults,
+    allParamsValid,
+    arrowEnabled, 
+    setArrowEnabled,
+  } = useAdvancedSettings();
+  
   const {
     datasets,
     datasetId,
@@ -28,22 +46,7 @@ export default function IntelligentPage() {
     loadTimeRange,
     loadGlobalView,
     createZoomReloadHandler
-  } = useTdmsData(); // ← ce hook est maintenant 100% UUID string
-
-  const {
-    globalPoints,
-    setGlobalPoints,
-    zoomPoints,
-    setZoomPoints,
-    initialLimit,
-    setInitialLimit,
-    showAdvancedSettings,
-    setShowAdvancedSettings,
-    backendConstraints,
-    validateParam,
-    resetToDefaults,
-    allParamsValid
-  } = useAdvancedSettings();
+  } = useTdmsData({ useArrow: arrowEnabled }); 
 
   // Charge automatiquement quand le channel change
   useEffect(() => {
@@ -51,7 +54,15 @@ export default function IntelligentPage() {
       loadTimeRange(channelId);
       loadGlobalView(channelId, globalPoints, initialLimit);
     }
-  }, [channelId, globalPoints, initialLimit, loadTimeRange, loadGlobalView]);
+
+  }, [channelId, globalPoints, initialLimit]);
+
+  useEffect(() => {
+    if (channelId) {
+      loadGlobalView(channelId, globalPoints, initialLimit);
+    }
+
+  }, [arrowEnabled]); 
 
   const title = useMemo(() => {
     const channel = channels.find(channel => channel.channel_id === channelId);
@@ -121,6 +132,8 @@ export default function IntelligentPage() {
           validateParam={validateParam}
           resetToDefaults={resetToDefaults}
           allParamsValid={allParamsValid}
+          arrowEnabled={arrowEnabled}
+          setArrowEnabled={setArrowEnabled}
         />
 
         {/* Sélection Dataset/Channel */}

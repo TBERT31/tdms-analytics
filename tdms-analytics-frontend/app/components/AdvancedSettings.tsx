@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 
 interface AdvancedSettingsProps {
   globalPoints: number;
@@ -27,6 +28,8 @@ interface AdvancedSettingsProps {
   };
   resetToDefaults: () => void;
   allParamsValid: boolean;
+  arrowEnabled: boolean;
+  setArrowEnabled: (v: boolean) => void;
 }
 
 export default function AdvancedSettings({
@@ -41,7 +44,9 @@ export default function AdvancedSettings({
   backendConstraints,
   validateParam,
   resetToDefaults,
-  allParamsValid
+  allParamsValid,
+  arrowEnabled, 
+  setArrowEnabled,  
 }: AdvancedSettingsProps) {
   const globalPointsValidation = validateParam(globalPoints, 'points');
   const zoomPointsValidation = validateParam(zoomPoints, 'points');
@@ -214,6 +219,23 @@ export default function AdvancedSettings({
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* ✅ Nouveau bloc: Toggle Arrow IPC */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Arrow IPC stream</Label>
+                <div className="flex items-center justify-between p-3 border rounded-md">
+                  <div>
+                    <div className="text-sm font-medium">Activer le format Arrow</div>
+                    <div className="text-xs text-muted-foreground">
+                      Binaire columnar + (auto)GZip pour gros volumes
+                    </div>
+                  </div>
+                  <Switch checked={arrowEnabled} onCheckedChange={setArrowEnabled} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Si désactivé, fallback JSON classique.
+                </p>
               </div>
             </div>
 

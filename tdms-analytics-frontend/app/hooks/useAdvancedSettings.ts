@@ -27,6 +27,10 @@ export function useAdvancedSettings() {
     limit: { min: 10000, max: 200000 }
   });
 
+  const [arrowEnabled, setArrowEnabled] = useState(
+    String(process.env.NEXT_PUBLIC_ENABLE_ARROW ?? "true").toLowerCase() === "true"
+  );
+
   // Chargement des contraintes backend au démarrage
   useEffect(() => {
     const loadConstraints = async () => {
@@ -82,6 +86,10 @@ export function useAdvancedSettings() {
     // Utilitaires
     validateParam,
     resetToDefaults,
-    allParamsValid
+    allParamsValid,
+
+    // IPC Stream Apache Arrow
+    arrowEnabled,
+    setArrowEnabled,
   };
 }
