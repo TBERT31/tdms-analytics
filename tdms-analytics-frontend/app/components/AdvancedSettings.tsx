@@ -157,7 +157,7 @@ export default function AdvancedSettings({
               {/* Limite initiale */}
               <div className="space-y-2">
                 <Label htmlFor="requestLimit" className="text-sm font-medium">
-                  Plage maximale (points)
+                  Plage maximale (points en abscisse)
                 </Label>
                 <Input
                   id="requestLimit"

@@ -1,75 +1,99 @@
+import lttb
 import numpy as np
 import pandas as pd
 
-
-def smart_downsample_production(df: pd.DataFrame, target_points: int) -> pd.DataFrame:
+def downsample_with_lttb(df: pd.DataFrame, target_points: int) -> pd.DataFrame:
     """
-    Intelligent downsampling using LTTB algorithm for time series data.
-    
-    Args:
-        df: DataFrame with 'time' and 'value' columns
-        target_points: Target number of points after downsampling
-        
-    Returns:
-        Downsampled DataFrame
+    Utilise la librairie lttb officielle, testée et éprouvée.
     """
     if len(df) <= target_points:
         return df
-        
-    if target_points < 3:
-        # For very small target, just take first, middle, and last points
-        indices = [0, len(df) // 2, len(df) - 1][:target_points]
-        return df.iloc[indices].copy()
     
-    # LTTB algorithm implementation
+    # Préparer les données au format attendu par lttb
+    # Format: array 2D avec [temps, valeurs]
+    if 'time' in df.columns and 'value' in df.columns:
+        
+        # Convertir les timestamps datetime en float si nécessaire
+        time_values = df['time'].values
+        if pd.api.types.is_datetime64_any_dtype(df['time']):
+            # Convertir en timestamps Unix (secondes)
+            time_values = pd.to_datetime(df['time']).astype('int64') / 1e9
+        else:
+            time_values = time_values.astype(float)
+        
+        # Créer le tableau 2D requis par lttb
+        data_array = np.column_stack([
+            time_values,
+            df['value'].astype(float).values
+        ])
+        
+        # Appliquer LTTB
+        downsampled = lttb.downsample(data_array, n_out=target_points)
+        
+        # Reconstruire le DataFrame
+        result_df = pd.DataFrame({
+            'time': downsampled[:, 0],
+            'value': downsampled[:, 1]
+        })
+        
+        # Reconvertir les timestamps si nécessaire
+        if pd.api.types.is_datetime64_any_dtype(df['time']):
+            result_df['time'] = pd.to_datetime(result_df['time'], unit='s')
+        else:
+            result_df['time'] = result_df['time'].astype(df['time'].dtype)
+            
+        return result_df
+    
+    else:
+        raise ValueError("DataFrame doit avoir les colonnes 'time' et 'value'")
+
+
+# Version alternative avec lttbc (plus rapide pour de gros volumes)
+def downsample_with_lttbc(df: pd.DataFrame, target_points: int) -> pd.DataFrame:
+    """
+    Version ultra-rapide avec lttbc (extension C)
+    Installation: pip install lttbc
+    """
+    try:
+        import lttbc
+    except ImportError:
+        raise ImportError("pip install lttbc")
+    
+    if len(df) <= target_points:
+        return df
+    
+    # Même logique mais avec lttbc
     time_values = df['time'].values
-    data_values = df['value'].values
+    if pd.api.types.is_datetime64_any_dtype(df['time']):
+        time_values = pd.to_datetime(df['time']).astype('int64') / 1e9
+    else:
+        time_values = time_values.astype(float)
     
-    # Always include first and last points
-    sampled_indices = [0]
+    # lttbc prend des arrays séparés (plus rapide)
+    downsampled_indices = lttbc.downsample(
+        time_values, 
+        df['value'].astype(float).values, 
+        target_points
+    )
     
-    # Calculate bucket size
-    bucket_size = (len(df) - 2) / (target_points - 2)
+    return df.iloc[downsampled_indices].copy()
+
+
+# Fonction wrapper pour ton endpoint
+def smart_downsample_production(df: pd.DataFrame, target_points: int, prefer_speed: bool = False) -> pd.DataFrame:
+    """
+    Downsampling production avec librairies éprouvées
     
-    a = 0  # Initially a is the first point in the triangle
-    
-    for i in range(target_points - 2):  # -2 because we already have first and will add last
-        # Calculate point average for next bucket
-        avg_range_start = int((i + 1) * bucket_size) + 1
-        avg_range_end = min(int((i + 2) * bucket_size) + 1, len(df))
-        
-        if avg_range_end <= avg_range_start:
-            break
-            
-        avg_x = np.mean(time_values[avg_range_start:avg_range_end])
-        avg_y = np.mean(data_values[avg_range_start:avg_range_end])
-        
-        # Get the range for this bucket
-        range_start = int(i * bucket_size) + 1
-        range_end = min(int((i + 1) * bucket_size) + 1, len(df))
-        
-        if range_end <= range_start:
-            break
-            
-        # Calculate triangle areas for points in current bucket
-        max_area = -1
-        max_area_point = range_start
-        
-        for j in range(range_start, range_end):
-            area = abs((time_values[a] - avg_x) * (data_values[j] - data_values[a]) -
-                      (time_values[a] - time_values[j]) * (avg_y - data_values[a])) * 0.5
-            
-            if area > max_area:
-                max_area = area
-                max_area_point = j
-        
-        sampled_indices.append(max_area_point)
-        a = max_area_point  # This point is the next a
-    
-    # Always include the last point
-    sampled_indices.append(len(df) - 1)
-    
-    # Remove duplicates and sort
-    sampled_indices = sorted(list(set(sampled_indices)))
-    
-    return df.iloc[sampled_indices].copy().reset_index(drop=True)
+    Args:
+        df: DataFrame avec colonnes 'time' et 'value'
+        target_points: nombre de points cibles
+        prefer_speed: True = utilise lttbc (plus rapide), False = utilise lttb (plus stable)
+    """
+    if prefer_speed:
+        try:
+            return downsample_with_lttbc(df, target_points)
+        except ImportError:
+            print("lttbc non installé, utilisation de lttb standard")
+            return downsample_with_lttb(df, target_points)
+    else:
+        return downsample_with_lttb(df, target_points)
