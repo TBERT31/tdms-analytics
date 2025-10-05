@@ -31,6 +31,8 @@ export function useAdvancedSettings() {
     String(process.env.NEXT_PUBLIC_ENABLE_ARROW ?? "true").toLowerCase() === "true"
   );
 
+  const [downsamplingMethod, setDownsamplingMethod] = useState<"lttb"|"uniform"|"clickhouse">("lttb");
+
   // Chargement des contraintes backend au démarrage
   useEffect(() => {
     const loadConstraints = async () => {
@@ -91,5 +93,9 @@ export function useAdvancedSettings() {
     // IPC Stream Apache Arrow
     arrowEnabled,
     setArrowEnabled,
+
+    // Downsampling method settings
+    downsamplingMethod, 
+    setDownsamplingMethod,
   };
 }

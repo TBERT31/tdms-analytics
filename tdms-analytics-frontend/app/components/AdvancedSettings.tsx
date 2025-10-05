@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
-import { TimeRange } from "../hooks/useTdmsData";
+
 
 interface AdvancedSettingsProps {
   globalPoints: number;
@@ -31,6 +31,8 @@ interface AdvancedSettingsProps {
   allParamsValid: boolean;
   arrowEnabled: boolean;
   setArrowEnabled: (v: boolean) => void;
+  downsamplingMethod: "lttb" | "uniform" | "clickhouse";
+  setDownsamplingMethod: (m: "lttb" | "uniform" | "clickhouse") => void;
 }
 
 export default function AdvancedSettings({
@@ -48,6 +50,8 @@ export default function AdvancedSettings({
   allParamsValid,
   arrowEnabled, 
   setArrowEnabled,  
+  downsamplingMethod,
+  setDownsamplingMethod,
 }: AdvancedSettingsProps) {
   const globalPointsValidation = validateParam(globalPoints, 'points');
   const zoomPointsValidation = validateParam(zoomPoints, 'points');
@@ -238,6 +242,37 @@ export default function AdvancedSettings({
                   Si désactivé, fallback JSON classique.
                 </p>
               </div>
+            </div>
+
+            {/* ✅ Méthode de downsampling */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Méthode de downsampling</Label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <Button
+                  variant={downsamplingMethod === "lttb" ? "default" : "outline"}
+                  onClick={() => setDownsamplingMethod("lttb")}
+                  className="w-full"
+                >
+                  LTTB
+                </Button>
+                <Button
+                  variant={downsamplingMethod === "uniform" ? "default" : "outline"}
+                  onClick={() => setDownsamplingMethod("uniform")}
+                  className="w-full"
+                >
+                  Uniform
+                </Button>
+                <Button
+                  variant={downsamplingMethod === "clickhouse" ? "default" : "outline"}
+                  onClick={() => setDownsamplingMethod("clickhouse")}
+                  className="w-full"
+                >
+                  ClickHouse
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                LTTB = qualitatif pour signaux; Uniform = échantillonnage régulier; ClickHouse = décimation côté BDD.
+              </p>
             </div>
 
             {/* Conseils de performance */}

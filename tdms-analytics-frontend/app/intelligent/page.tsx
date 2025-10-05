@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import DatasetSelector from "../components/DatasetSelector";
-import { request } from "http";
 
 export default function IntelligentPage() {
   
@@ -30,6 +29,7 @@ export default function IntelligentPage() {
     allParamsValid,
     arrowEnabled, 
     setArrowEnabled,
+    downsamplingMethod, setDownsamplingMethod,
   } = useAdvancedSettings();
   
   const {
@@ -64,9 +64,9 @@ export default function IntelligentPage() {
       setEndWindow(requestLimit);
       
       loadTimeRange(channelId);
-      loadGlobalView(channelId, globalPoints, requestLimit, 0, requestLimit);
+      loadGlobalView(channelId, globalPoints, requestLimit, 0, requestLimit, downsamplingMethod);
     }
-  }, [channelId, requestLimit]);
+  }, [channelId, requestLimit, downsamplingMethod]);
 
   useEffect(() => {
     if (!channelId) return;
@@ -80,7 +80,7 @@ export default function IntelligentPage() {
     // Attendre 800ms après la dernière frappe avant de charger
     debounceTimerRef.current = setTimeout(() => {
       console.log('Chargement avec fenêtre manuelle:', { startWindow, endWindow });
-      loadGlobalView(channelId, globalPoints, requestLimit, startWindow, endWindow);
+      loadGlobalView(channelId, globalPoints, requestLimit, startWindow, endWindow, downsamplingMethod);
     }, 800);
 
     // Cleanup
@@ -93,7 +93,7 @@ export default function IntelligentPage() {
 
   useEffect(() => {
     if (channelId) {
-      loadGlobalView(channelId, globalPoints, requestLimit);
+      loadGlobalView(channelId, globalPoints, requestLimit, startWindow, endWindow, downsamplingMethod); 
     }
 
   }, [arrowEnabled]); 
@@ -120,10 +120,10 @@ export default function IntelligentPage() {
       handleZoomSync(range.start, range.end);
       
       // Puis charger les données
-      const handler = createZoomReloadHandler(zoomPoints);
+      const handler = createZoomReloadHandler(zoomPoints, downsamplingMethod);
       return handler(range);
     },
-    [createZoomReloadHandler, zoomPoints, handleZoomSync]
+    [createZoomReloadHandler, zoomPoints, handleZoomSync, downsamplingMethod]
   );
 
   const canReload =
@@ -175,6 +175,8 @@ export default function IntelligentPage() {
           allParamsValid={allParamsValid}
           arrowEnabled={arrowEnabled}
           setArrowEnabled={setArrowEnabled}
+          downsamplingMethod={downsamplingMethod}
+          setDownsamplingMethod={setDownsamplingMethod}
         />
 
         {/* Sélection Dataset/Channel */}
@@ -193,7 +195,7 @@ export default function IntelligentPage() {
           loading={loading}
           canReload={canReload}
           onReload={() => channelId && loadGlobalView(
-            channelId, globalPoints, requestLimit, startWindow, endWindow
+            channelId, globalPoints, requestLimit, startWindow, endWindow, downsamplingMethod
           )}
           requestLimit={requestLimit}
         />

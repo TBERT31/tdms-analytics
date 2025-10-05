@@ -104,14 +104,15 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
     globalPoints: number,
     requestLimit: number,
     startWindow?: number | null,
-    endWindow?: number | null
+    endWindow?: number | null,
+    method: "lttb" | "uniform" | "clickhouse" = "lttb",
   ) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         channel_id: selectedChannelId,
         points: String(globalPoints),
-        method: "lttb",
+        method,
         limit: String(requestLimit),
       });
 
@@ -147,7 +148,7 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
             original_points: x.length,
             sampled_points: x.length,
             has_more: false,
-            method: "lttb",
+            method,
           });
           console.log(`Vue globale (Arrow) chargée: ${x.length} points`);
           return;
@@ -173,7 +174,8 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
   }, [useArrow, timeRange, channels]);
 
   // Fonction de rechargement pour le zoom
-  const createZoomReloadHandler = useCallback((zoomPoints: number) => {
+  const createZoomReloadHandler = useCallback(
+    (zoomPoints: number, method: "lttb"|"uniform"|"clickhouse" = "lttb") => {
     return async (range: { start: number; end: number }) => {
       if (!channelId || !timeRange) {
         throw new Error("Channel ou time range non disponible");
@@ -184,7 +186,7 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
         start_timestamp: String(range.start),
         end_timestamp: String(range.end),
         points: String(zoomPoints),
-        method: "lttb",
+        method,
         limit: "200000",
       });
       const url = `${API}/get_window_filtered?${params}`;
