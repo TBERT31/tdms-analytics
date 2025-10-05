@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Zap, Database, RefreshCw, Info } from "lucide-react";
 import IntelligentPlotClient from "../components/intelligent/IntelligentPlotClient";
 import UploadBox from "../components/UploadBox";
@@ -7,11 +7,11 @@ import AdvancedSettings from "../components/AdvancedSettings";
 import DatasetInfo from "../components/DatasetInfo";
 import { useTdmsData } from "../hooks/useTdmsData";
 import { useAdvancedSettings } from "../hooks/useAdvancedSettings";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import DatasetSelector from "../components/DatasetSelector";
+import { request } from "http";
 
 export default function IntelligentPage() {
   
@@ -20,8 +20,8 @@ export default function IntelligentPage() {
     setGlobalPoints,
     zoomPoints,
     setZoomPoints,
-    initialLimit,
-    setInitialLimit,
+    requestLimit,
+    setRequestLimit,
     showAdvancedSettings,
     setShowAdvancedSettings,
     backendConstraints,
@@ -48,18 +48,52 @@ export default function IntelligentPage() {
     createZoomReloadHandler
   } = useTdmsData({ useArrow: arrowEnabled }); 
 
-  // Charge automatiquement quand le channel change
+  const [startWindow, setStartWindow] = useState<number | null>(null);
+  const [endWindow, setEndWindow] = useState<number | null>(null);
+
+  const debounceTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  const handleZoomSync = useCallback((start: number, end: number) => {
+    setStartWindow(start);
+    setEndWindow(end);
+  }, []);
+
   useEffect(() => {
     if (channelId) {
+      setStartWindow(0);
+      setEndWindow(requestLimit);
+      
       loadTimeRange(channelId);
-      loadGlobalView(channelId, globalPoints, initialLimit);
+      loadGlobalView(channelId, globalPoints, requestLimit, 0, requestLimit);
+    }
+  }, [channelId, requestLimit]);
+
+  useEffect(() => {
+    if (!channelId) return;
+    
+    if (startWindow === null && endWindow === null) return;
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
 
-  }, [channelId, globalPoints, initialLimit]);
+    // Attendre 800ms après la dernière frappe avant de charger
+    debounceTimerRef.current = setTimeout(() => {
+      console.log('Chargement avec fenêtre manuelle:', { startWindow, endWindow });
+      loadGlobalView(channelId, globalPoints, requestLimit, startWindow, endWindow);
+    }, 800);
+
+    // Cleanup
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [startWindow, endWindow]); 
 
   useEffect(() => {
     if (channelId) {
-      loadGlobalView(channelId, globalPoints, initialLimit);
+      loadGlobalView(channelId, globalPoints, requestLimit);
     }
 
   }, [arrowEnabled]); 
@@ -81,14 +115,21 @@ export default function IntelligentPage() {
   }, [globalData, title]);
 
   const handleZoomReload = useMemo(
-    () => createZoomReloadHandler(zoomPoints),
-    [createZoomReloadHandler, zoomPoints]
+    () => async (range: { start: number; end: number }) => {
+      // Synchroniser les champs de fenêtre
+      handleZoomSync(range.start, range.end);
+      
+      // Puis charger les données
+      const handler = createZoomReloadHandler(zoomPoints);
+      return handler(range);
+    },
+    [createZoomReloadHandler, zoomPoints, handleZoomSync]
   );
 
   const canReload =
     Boolean(channelId) &&
     validateParam(globalPoints, "points").isValid &&
-    validateParam(initialLimit, "limit").isValid;
+    validateParam(requestLimit, "limit").isValid;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -110,7 +151,7 @@ export default function IntelligentPage() {
             <AlertDescription className="text-green-800">
               <strong>Mode Intelligent:</strong> Vue globale ({globalPoints.toLocaleString()} pts) puis
               rechargement automatique avec plus de détails ({zoomPoints.toLocaleString()} pts) lors du zoom.
-              Limite initiale: {initialLimit.toLocaleString()} pts.
+              Limite initiale: {requestLimit.toLocaleString()} pts.
             </AlertDescription>
           </Alert>
         </div>
@@ -124,8 +165,8 @@ export default function IntelligentPage() {
           setGlobalPoints={setGlobalPoints}
           zoomPoints={zoomPoints}
           setZoomPoints={setZoomPoints}
-          initialLimit={initialLimit}
-          setInitialLimit={setInitialLimit}
+          requestLimit={requestLimit}
+          setRequestLimit={setRequestLimit}
           showAdvancedSettings={showAdvancedSettings}
           setShowAdvancedSettings={setShowAdvancedSettings}
           backendConstraints={backendConstraints}
@@ -137,87 +178,28 @@ export default function IntelligentPage() {
         />
 
         {/* Sélection Dataset/Channel */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              Sélection des données
-            </CardTitle>
-            <CardDescription>Choisissez un dataset et un canal pour commencer l'analyse</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-              <div className="flex-1 space-y-2">
-                <label className="text-sm font-medium text-gray-700">Dataset</label>
-                <Select 
-                  value={datasetId ?? ""} 
-                  onValueChange={(value) => setDatasetId(value)}
-                  disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez un dataset..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {datasets.map(dataset => (
-                      <SelectItem key={dataset.dataset_id} value={dataset.dataset_id}>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{dataset.dataset_id.slice(0, 8)}</Badge>
-                          {dataset.filename}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex-1 space-y-2">
-                <label className="text-sm font-medium text-gray-700">Channel</label>
-                <Select 
-                  value={channelId ?? ""} 
-                  onValueChange={(value) => setChannelId(value)}
-                  disabled={loading || !channels.length}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez un canal..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {channels.map(channel => (
-                      <SelectItem key={channel.channel_id} value={channel.channel_id}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{channel.group_name} — {channel.channel_name}</span>
-                          <Badge variant="secondary" className="ml-2">
-                            {channel.n_rows.toLocaleString()}
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                onClick={() => channelId && loadGlobalView(channelId, globalPoints, initialLimit)}
-                disabled={!canReload || loading}
-                className="min-w-fit"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Chargement...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Recharger
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <DatasetSelector
+          datasets={datasets}
+          datasetId={datasetId}
+          setDatasetId={setDatasetId}
+          channels={channels}
+          channelId={channelId}
+          setChannelId={setChannelId}
+          timeRange={timeRange}
+          startWindow={startWindow}
+          setStartWindow={setStartWindow}
+          endWindow={endWindow}
+          setEndWindow={setEndWindow}
+          loading={loading}
+          canReload={canReload}
+          onReload={() => channelId && loadGlobalView(
+            channelId, globalPoints, requestLimit, startWindow, endWindow
+          )}
+          requestLimit={requestLimit}
+        />
 
         {/* Infos dataset */}
-        <DatasetInfo timeRange={timeRange} globalData={globalData} initialLimit={initialLimit} />
+        <DatasetInfo timeRange={timeRange} globalData={globalData} initialLimit={requestLimit} />
 
         {/* Graphique */}
         {!plotData && !loading && (

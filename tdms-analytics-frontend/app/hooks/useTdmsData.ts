@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { fetchArrowTable, extractXY, ARROW_MIME } from "@/app/utils/arrow";
+import { fetchArrowTable, extractXY } from "@/app/utils/arrow";
 
 interface Dataset {
   dataset_id: string;
@@ -30,7 +30,7 @@ interface FilteredWindowResp {
   method: string;
 }
 
-interface TimeRange {
+export interface TimeRange {
   channel_id: string;
   has_time: boolean;
   min_timestamp?: number;
@@ -102,7 +102,9 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
   const loadGlobalView = useCallback(async (
     selectedChannelId: string,
     globalPoints: number,
-    initialLimit: number
+    requestLimit: number,
+    startWindow?: number | null,
+    endWindow?: number | null
   ) => {
     setLoading(true);
     try {
@@ -110,8 +112,16 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
         channel_id: selectedChannelId,
         points: String(globalPoints),
         method: "lttb",
-        limit: String(initialLimit),
+        limit: String(requestLimit),
       });
+
+      if (startWindow !== null && startWindow !== undefined) {
+      params.append("start_timestamp", String(startWindow));
+      }
+      if (endWindow !== null && endWindow !== undefined) {
+        params.append("end_timestamp", String(endWindow));
+      }
+
       const url = `${API}/get_window_filtered?${params}`;
 
       if (useArrow) {

@@ -15,10 +15,10 @@ export function useAdvancedSettings() {
   const [zoomPoints, setZoomPoints] = useState(
     Number(process.env.NEXT_PUBLIC_DEFAULT_ZOOM_POINTS) || 3000
   );
-  const [initialLimit, setInitialLimit] = useState(
+  const [requestLimit, setRequestLimit] = useState(
     Number(process.env.NEXT_PUBLIC_DEFAULT_INITIAL_LIMIT) || 100000
   );
-  
+
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
   // Contraintes backend (chargées dynamiquement depuis l'API)
@@ -62,14 +62,14 @@ export function useAdvancedSettings() {
   const resetToDefaults = () => {
     setGlobalPoints(Number(process.env.NEXT_PUBLIC_DEFAULT_GLOBAL_POINTS) || 2000);
     setZoomPoints(Number(process.env.NEXT_PUBLIC_DEFAULT_ZOOM_POINTS) || 3000);
-    setInitialLimit(Number(process.env.NEXT_PUBLIC_DEFAULT_INITIAL_LIMIT) || 100000);
+    setRequestLimit(Number(process.env.NEXT_PUBLIC_DEFAULT_INITIAL_LIMIT) || 100000);
   };
 
   // Validation globale
   const allParamsValid = 
     validateParam(globalPoints, 'points').isValid && 
     validateParam(zoomPoints, 'points').isValid && 
-    validateParam(initialLimit, 'limit').isValid;
+    validateParam(requestLimit, 'limit').isValid;
 
   return {
     // États
@@ -77,8 +77,8 @@ export function useAdvancedSettings() {
     setGlobalPoints,
     zoomPoints,
     setZoomPoints,
-    initialLimit,
-    setInitialLimit,
+    requestLimit,
+    setRequestLimit,
     showAdvancedSettings,
     setShowAdvancedSettings,
     backendConstraints,

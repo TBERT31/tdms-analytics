@@ -7,14 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
+import { TimeRange } from "../hooks/useTdmsData";
 
 interface AdvancedSettingsProps {
   globalPoints: number;
   setGlobalPoints: (value: number) => void;
   zoomPoints: number;
   setZoomPoints: (value: number) => void;
-  initialLimit: number;
-  setInitialLimit: (value: number) => void;
+  requestLimit: number;
+  setRequestLimit: (value: number) => void;
   showAdvancedSettings: boolean;
   setShowAdvancedSettings: (show: boolean) => void;
   backendConstraints: {
@@ -37,8 +38,8 @@ export default function AdvancedSettings({
   setGlobalPoints,
   zoomPoints,
   setZoomPoints,
-  initialLimit,
-  setInitialLimit,
+  requestLimit,
+  setRequestLimit,
   showAdvancedSettings,
   setShowAdvancedSettings,
   backendConstraints,
@@ -50,7 +51,7 @@ export default function AdvancedSettings({
 }: AdvancedSettingsProps) {
   const globalPointsValidation = validateParam(globalPoints, 'points');
   const zoomPointsValidation = validateParam(zoomPoints, 'points');
-  const initialLimitValidation = validateParam(initialLimit, 'limit');
+  const requestLimitValidation = validateParam(requestLimit, 'limit');
 
   return (
     <Card className="mb-6">
@@ -155,24 +156,24 @@ export default function AdvancedSettings({
 
               {/* Limite initiale */}
               <div className="space-y-2">
-                <Label htmlFor="initialLimit" className="text-sm font-medium">
-                  Limite initiale lecture
+                <Label htmlFor="requestLimit" className="text-sm font-medium">
+                  Plage maximale (points)
                 </Label>
                 <Input
-                  id="initialLimit"
+                  id="requestLimit"
                   type="number"
-                  value={initialLimit}
-                  onChange={(e) => setInitialLimit(Number(e.target.value))}
+                  value={requestLimit}
+                  onChange={(e) => setRequestLimit(Number(e.target.value))}
                   min={backendConstraints.limit.min}
                   max={backendConstraints.limit.max}
                   step={10000}
                   className={
-                    !initialLimitValidation.isValid 
-                      ? "border-red-500 focus:border-red-500 bg-red-50" 
+                    !requestLimitValidation.isValid
+                      ? "border-red-500 focus:border-red-500 bg-red-50"
                       : ""
                   }
                 />
-                {!initialLimitValidation.isValid && (
+                {!requestLimitValidation.isValid && (
                   <Alert variant="destructive" className="p-2">
                     <AlertTriangle className="h-3 w-3" />
                     <AlertDescription className="text-xs">
@@ -181,7 +182,7 @@ export default function AdvancedSettings({
                   </Alert>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Max {backendConstraints.limit.max.toLocaleString()} (limite backend)
+                  Plage maximale en abscisse : Max {backendConstraints.limit.max.toLocaleString()}.
                 </p>
               </div>
 
@@ -221,7 +222,7 @@ export default function AdvancedSettings({
                 </div>
               </div>
 
-              {/* ✅ Nouveau bloc: Toggle Arrow IPC */}
+              {/* ✅ Toggle Arrow IPC */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Arrow IPC stream</Label>
                 <div className="flex items-center justify-between p-3 border rounded-md">
