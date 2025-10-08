@@ -20,6 +20,39 @@ services:
   #       poetry run uvicorn pypi_clickhouse_analytics.main:app --host 0.0.0.0 --port 8000
   #     "
 
+  redis:
+    image: redis:8.0.3
+    restart: always
+    ports:
+      - "6379:6379"
+    command: [
+      "redis-server",
+      "--aclfile", "/usr/local/etc/redis/users.acl",
+      "--databases", "1",
+      "--save", "",
+      "--appendonly", "no"
+    ]
+    volumes:
+      - ./infra/redis-data:/data
+      - ./infra/redis-conf/users.acl:/usr/local/etc/redis/users.acl:ro
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2.5
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+        KC_BOOTSTRAP_ADMIN_USERNAME: admin
+        KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+        KC_DB: dev-file
+        KC_METRICS_ENABLED: "true"
+        KC_HEALTH_ENABLED: "true"
+        KEYCLOAK_IMPORT: /opt/keycloak/data/import/realm-export.json
+    command: start-dev --import-realm
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: clickhouse
@@ -33,15 +66,6 @@ services:
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: pass
 
-  redis:
-    image: redis:alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: [ "redis-server", "--appendonly", "yes" ]
-
 volumes:
   clickhouse_data:
-  redis_data:
+  keycloak_data:
