@@ -16,19 +16,19 @@ import * as yaml from 'yaml';
 export async function bootstrap(): Promise<INestApplication> {
   const app = await NestFactory.create(AppModule);
 
-  const config = new DocumentBuilder()
-    .setTitle('EGIS - BFF')
-    .setDescription('Here the documentation of our API-GATEWAY')
-    .setVersion('1.0.0')
-    .addTag('Users', 'User management endpoints')
-    .addTag('Auth', 'Authentification management endpoints')
-    .addBearerAuth()
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
-
   if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('EGIS - BFF')
+      .setDescription('Here the documentation of our API-GATEWAY')
+      .setVersion('1.0.0')
+      .addTag('Users', 'User management endpoints')
+      .addTag('Auth', 'Authentification management endpoints')
+      .addBearerAuth()
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('docs', app, document);
+
     const outputPath = resolve(process.cwd(), 'docs');
 
     if (!existsSync(outputPath)) {
