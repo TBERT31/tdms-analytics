@@ -96,7 +96,7 @@ paths:
         "200":
           description: ""
       tags: *a1
-  /user/me:
+  /users/me:
     get:
       operationId: UserController_user
       parameters: []
@@ -112,6 +112,312 @@ paths:
       summary: Get current user information
       tags:
         - Users
+  /dataset/health:
+    get:
+      operationId: DatasetController_healthCheck
+      parameters: []
+      responses:
+        "200":
+          description: Service is healthy
+      summary: Health check
+      tags: &a2
+        - Datasets
+  /dataset/datasets:
+    get:
+      operationId: DatasetController_listDatasets
+      parameters: []
+      responses:
+        "200":
+          description: List of datasets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DatasetDto"
+      summary: List all datasets
+      tags: *a2
+  /dataset/dataset_meta:
+    get:
+      operationId: DatasetController_getDatasetMeta
+      parameters:
+        - name: dataset_id
+          required: true
+          in: query
+          description: Dataset UUID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dataset metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetMetaDto"
+        "404":
+          description: Dataset not found
+      summary: Get dataset metadata
+      tags: *a2
+  /dataset/datasets/{datasetId}:
+    delete:
+      operationId: DatasetController_deleteDataset
+      parameters:
+        - name: datasetId
+          required: true
+          in: path
+          description: Dataset UUID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dataset deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Dataset deleted successfully
+        "404":
+          description: Dataset not found
+      summary: Delete a dataset
+      tags: *a2
+  /dataset/datasets/{datasetId}/channels:
+    get:
+      operationId: DatasetController_listChannels
+      parameters:
+        - name: datasetId
+          required: true
+          in: path
+          description: Dataset UUID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of channels
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChannelDto"
+        "404":
+          description: Dataset not found
+      summary: List channels for a dataset
+      tags: *a2
+  /dataset/channels/{channelId}/time_range:
+    get:
+      operationId: DatasetController_getChannelTimeRange
+      parameters:
+        - name: channelId
+          required: true
+          in: path
+          description: Channel UUID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Channel time range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeRangeDto"
+        "404":
+          description: Channel not found
+      summary: Get channel time range
+      tags: *a2
+  /dataset/window:
+    get:
+      operationId: DatasetController_getWindow
+      parameters:
+        - name: channel_id
+          required: true
+          in: query
+          description: UUID du canal
+          schema:
+            type: string
+        - name: start
+          required: false
+          in: query
+          description: ISO date si has_time
+          schema:
+            type: string
+        - name: end
+          required: false
+          in: query
+          description: ISO date si has_time
+          schema:
+            type: string
+        - name: start_sec
+          required: false
+          in: query
+          description: fenêtre relative en secondes
+          schema:
+            type: number
+        - name: end_sec
+          required: false
+          in: query
+          description: fenêtre relative en secondes
+          schema:
+            type: number
+        - name: relative
+          required: false
+          in: query
+          description: temps en secondes depuis le début
+          schema:
+            default: false
+            type: boolean
+        - name: points
+          required: false
+          in: query
+          description: Nombre de points
+          schema:
+            minimum: 10
+            maximum: 100000
+            default: 2000
+            type: number
+        - name: method
+          required: false
+          in: query
+          description: Méthode de downsampling
+          schema:
+            default: lttb
+            type: string
+            enum:
+              - lttb
+              - uniform
+              - clickhouse
+      responses:
+        "200":
+          description: Windowed sensor data (JSON or Arrow format)
+      summary: Get windowed sensor data with downsampling
+      tags: *a2
+  /dataset/get_window_filtered:
+    get:
+      operationId: DatasetController_getWindowFiltered
+      parameters:
+        - name: channel_id
+          required: true
+          in: query
+          description: UUID du canal
+          schema:
+            type: string
+        - name: start_timestamp
+          required: false
+          in: query
+          description: Timestamp Unix de début
+          schema:
+            type: number
+        - name: end_timestamp
+          required: false
+          in: query
+          description: Timestamp Unix de fin
+          schema:
+            type: number
+        - name: cursor
+          required: false
+          in: query
+          description: Curseur temporel pour pagination
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 10000
+            maximum: 1000000
+            default: 250000
+            type: number
+        - name: points
+          required: false
+          in: query
+          schema:
+            minimum: 10
+            maximum: 100000
+            default: 2000
+            type: number
+        - name: method
+          required: false
+          in: query
+          schema:
+            default: lttb
+            type: string
+            enum:
+              - lttb
+              - uniform
+              - clickhouse
+      responses:
+        "200":
+          description: Filtered window data (JSON or Arrow format)
+      summary: Get filtered and paginated window data
+      tags: *a2
+  /dataset/ingest:
+    post:
+      operationId: DatasetController_ingestTdmsFile
+      parameters: []
+      requestBody:
+        required: true
+        description: TDMS file to ingest
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: TDMS file (.tdms extension)
+      responses:
+        "200":
+          description: File ingested successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResponseDto"
+        "400":
+          description: Invalid file or file type
+        "500":
+          description: Ingestion failed
+      summary: Ingest TDMS file into ClickHouse
+      tags: *a2
+  /dataset/api/constraints:
+    get:
+      operationId: DatasetController_getApiConstraints
+      parameters: []
+      responses:
+        "200":
+          description: API constraints
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  points_min:
+                    type: number
+                    example: 10
+                  points_max:
+                    type: number
+                    example: 100000
+                  default_points:
+                    type: number
+                    example: 2000
+                  limit_min:
+                    type: number
+                    example: 10000
+                  limit_max:
+                    type: number
+                    example: 1000000
+                  default_limit:
+                    type: number
+                    example: 250000
+                  chunk_size:
+                    type: number
+                    example: 500000
+      summary: Get API constraints for frontend validation
+      tags: *a2
 info:
   title: EGIS - BFF
   description: Here the documentation of our API-GATEWAY
@@ -129,4 +435,144 @@ components:
       scheme: bearer
       bearerFormat: JWT
       type: http
-  schemas: {}
+  schemas:
+    DatasetDto:
+      type: object
+      properties:
+        dataset_id:
+          type: string
+          description: Dataset UUID
+        filename:
+          type: string
+          description: Original filename
+        created_at:
+          type: string
+          description: Creation timestamp
+        total_points:
+          type: number
+          description: Total number of points
+      required:
+        - dataset_id
+        - filename
+        - created_at
+        - total_points
+    DatasetMetaDto:
+      type: object
+      properties:
+        dataset_id:
+          type: string
+          description: Dataset UUID
+        filename:
+          type: string
+          description: Original filename
+        channels:
+          type: array
+          description: List of channels
+        total_channels:
+          type: number
+          description: Total number of channels
+        total_points:
+          type: number
+          description: Total number of points
+        created_at:
+          type: string
+          description: Creation timestamp
+        storage:
+          type: string
+          description: Storage information
+      required:
+        - dataset_id
+        - filename
+        - channels
+        - total_channels
+        - total_points
+        - created_at
+        - storage
+    ChannelDto:
+      type: object
+      properties:
+        channel_id:
+          type: string
+          description: Channel UUID
+        dataset_id:
+          type: string
+          description: Dataset UUID
+        group_name:
+          type: string
+          description: Group name
+        channel_name:
+          type: string
+          description: Channel name
+        unit:
+          type: string
+          description: Unit of measurement
+        has_time:
+          type: boolean
+          description: Has time data
+        n_rows:
+          type: number
+          description: Number of rows
+      required:
+        - channel_id
+        - dataset_id
+        - group_name
+        - channel_name
+        - unit
+        - has_time
+        - n_rows
+    TimeRangeDto:
+      type: object
+      properties:
+        channel_id:
+          type: string
+          description: Channel UUID
+        has_time:
+          type: boolean
+          description: Has time data
+        min_timestamp:
+          type: number
+          description: Minimum timestamp
+        max_timestamp:
+          type: number
+          description: Maximum timestamp
+        min_iso:
+          type: string
+          description: Minimum ISO timestamp
+        max_iso:
+          type: string
+          description: Maximum ISO timestamp
+        min_index:
+          type: number
+          description: Minimum index
+        max_index:
+          type: number
+          description: Maximum index
+        total_points:
+          type: number
+          description: Total number of points
+      required:
+        - channel_id
+        - has_time
+        - total_points
+    IngestResponseDto:
+      type: object
+      properties:
+        dataset_id:
+          type: string
+          description: Dataset UUID
+        filename:
+          type: string
+          description: Original filename
+        channels_count:
+          type: number
+          description: Number of channels created
+        channels:
+          description: Channel metadata list
+          type: array
+          items:
+            type: string
+      required:
+        - dataset_id
+        - filename
+        - channels_count
+        - channels

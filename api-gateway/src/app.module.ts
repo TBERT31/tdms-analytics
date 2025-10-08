@@ -8,12 +8,14 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { HttpCacheInterceptor } from './common/interceptors/http-cache.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { UserModule } from './user/user.module';
+import { DatasetModule } from './dataset/dataset.module';
 
 @Module({
   imports: [
     CommonModule,
     AuthModule,
     UserModule,
+    DatasetModule,
   ],
   controllers: [AppController],
   providers: [

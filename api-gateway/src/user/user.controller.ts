@@ -8,7 +8,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-@Controller('user')
+@Controller('users')
 @ApiTags('Users')
 export class UserController {
   @Get('/me')
