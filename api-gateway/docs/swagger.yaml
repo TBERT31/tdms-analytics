@@ -1,0 +1,116 @@
+openapi: 3.0.0
+paths:
+  /:
+    get:
+      operationId: AppController_getHello
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      tags:
+        - App
+  /auth/login:
+    get:
+      description: Redirects to the authentication provider (Keycloak) for user login.
+        This endpoint is only accessible to non-authenticated users.
+      operationId: AuthController_login
+      parameters: []
+      responses:
+        "302":
+          description: Redirect to error page if login initiation fails
+          headers:
+            Location:
+              description: Redirect URL
+              schema:
+                type: string
+                example: /error?message=Could not initiate login
+        "403":
+          description: Forbidden - User is already authenticated
+      summary: Initiate login process
+      tags: &a1
+        - Auth
+  /auth/callback:
+    get:
+      description: Handles the OAuth callback from the authentication provider after
+        successful login. This endpoint processes the authorization code and
+        establishes the user session.
+      operationId: AuthController_loginCallback
+      parameters: []
+      responses:
+        "302":
+          description: Redirects to the configured post-login redirect URI
+          headers:
+            Location:
+              description: Post-login redirect URL
+              schema:
+                type: string
+        "400":
+          description: Bad Request - Invalid authorization code or OAuth parameters
+        "401":
+          description: Unauthorized - Authentication failed
+      summary: OAuth callback endpoint
+      tags: *a1
+  /auth/signup:
+    get:
+      description: Redirects to the authentication provider (Keycloak) for user
+        registration. This endpoint is only accessible to non-authenticated
+        users.
+      operationId: AuthController_signup
+      parameters: []
+      responses:
+        "302":
+          description: Redirect to error page if signup initiation fails
+          headers:
+            Location:
+              description: Redirect URL
+              schema:
+                type: string
+                example: /error?message=Could not initiate signup
+        "403":
+          description: Forbidden - User is already authenticated
+      summary: Initiate signup process
+      tags: *a1
+  /auth/logout:
+    get:
+      description: Logs out the current user by destroying the session, clearing
+        cookies, and redirecting to the authentication provider logout endpoint.
+      operationId: AuthController_logout
+      parameters: []
+      responses:
+        "302":
+          description: Redirects to Keycloak logout page or configured post-logout URI
+          headers:
+            Location:
+              description: Logout redirect URL
+              schema:
+                type: string
+        "500":
+          description: Internal Server Error - Error destroying session
+      summary: Logout user
+      tags: *a1
+  /auth/check-session:
+    get:
+      operationId: AuthController_checkSession
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      tags: *a1
+info:
+  title: EGIS - BFF
+  description: Here the documentation of our API-GATEWAY
+  version: 1.0.0
+  contact: {}
+tags:
+  - name: Users
+    description: User management endpoints
+  - name: Auth
+    description: Authentification management endpoints
+servers: []
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas: {}
