@@ -96,6 +96,22 @@ paths:
         "200":
           description: ""
       tags: *a1
+  /user/me:
+    get:
+      operationId: UserController_user
+      parameters: []
+      responses:
+        "200":
+          description: Current user information
+        "401":
+          description: Unauthorized - User not authenticated
+        "403":
+          description: Forbidden - User does not have required authorizations
+      security:
+        - bearer: []
+      summary: Get current user information
+      tags:
+        - Users
 info:
   title: EGIS - BFF
   description: Here the documentation of our API-GATEWAY

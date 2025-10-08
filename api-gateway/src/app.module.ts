@@ -7,11 +7,13 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { HttpCacheInterceptor } from './common/interceptors/http-cache.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
     CommonModule,
     AuthModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [
