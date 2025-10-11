@@ -354,7 +354,10 @@ paths:
       tags: *a2
   /dataset/ingest:
     post:
-      operationId: DatasetController_ingestTdmsFile
+      description: Streams the file directly to FastAPI backend without buffering in
+        memory. This is optimized for very large files (GB to TB range) with
+        minimal overhead.
+      operationId: DatasetController_ingestTdmsFileStream
       parameters: []
       requestBody:
         required: true
@@ -378,10 +381,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/IngestResponseDto"
         "400":
-          description: Invalid file or file type
+          description: Invalid file or Content-Type
+        "408":
+          description: Request timeout
         "500":
           description: Ingestion failed
-      summary: Ingest TDMS file into ClickHouse
+      summary: Ingest TDMS file via streaming proxy (optimized for large files)
       tags: *a2
   /dataset/api/constraints:
     get:

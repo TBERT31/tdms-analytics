@@ -12,9 +12,13 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve } from 'path';
 import * as yaml from 'yaml';
+import * as bodyParser from 'body-parser';
 
 export async function bootstrap(): Promise<INestApplication> {
   const app = await NestFactory.create(AppModule);
+
+  app.use(bodyParser.json({ limit: '200mb' }));
+  app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }));
 
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()

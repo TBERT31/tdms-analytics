@@ -12,6 +12,7 @@ import {
   IApiConstraints,
 } from './interfaces/api-response.interface';
 import { WindowQueryDto, WindowFilteredQueryDto } from './dto/window-query.dto';
+import { Readable } from 'stream';
 import FormData = require('form-data');
 
 @Injectable()
@@ -207,12 +208,25 @@ export class DatasetService {
   // ========== Ingestion ==========
   async ingestTdmsFile(file: Express.Multer.File): Promise<any> {
     try {
+      this.logger.log(`Starting ingestion for file: ${file.originalname} (${file.size} bytes)`);
       const formData = new FormData();
       
-      formData.append('file', file.buffer, {
+      const fileStream = Readable.from(file.buffer);
+      
+      formData.append('file', fileStream, {
         filename: file.originalname,
         contentType: file.mimetype,
+        knownLength: file.size, 
       });
+
+      const contentLength = await new Promise<number>((resolve, reject) => {
+        formData.getLength((err, length) => {
+          if (err) reject(err);
+          else resolve(length);
+        });
+      });
+
+      this.logger.log(`Uploading ${contentLength} bytes to FastAPI...`);
 
       const response = await firstValueFrom(
         this.httpService.post(
@@ -220,22 +234,43 @@ export class DatasetService {
           formData,
           {
             headers: {
-              ...formData.getHeaders(), 
+              ...formData.getHeaders(),
             },
-            maxBodyLength: Infinity, 
+            maxBodyLength: Infinity,
             maxContentLength: Infinity,
+            timeout: 600000, 
+            onUploadProgress: (progressEvent) => {
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / (progressEvent.total || contentLength)
+              );
+              if (percentCompleted % 10 === 0) { 
+                this.logger.log(`Upload progress: ${percentCompleted}%`);
+              }
+            },
           },
         ),
       );
+
+      this.logger.log(`Ingestion completed successfully for ${file.originalname}`);
       return response.data;
     } catch (error) {
-      this.logger.error('Failed to ingest TDMS file', error);
+      this.logger.error(`Failed to ingest TDMS file: ${file.originalname}`, error);
+      
+      if (error.code === 'ECONNABORTED') {
+        throw new HttpException(
+          'Upload timeout - file too large or network too slow',
+          408,
+        );
+      }
+      
       throw new HttpException(
         error.response?.data || 'Failed to ingest file',
         error.response?.status || 500,
       );
     }
   }
+
+  
 
   async getApiConstraints(): Promise<IApiConstraints> {
     try {

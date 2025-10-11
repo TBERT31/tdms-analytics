@@ -74,22 +74,22 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
       useFactory: (configService: ConfigService) => [
         {
           ttl: configService.get<number>('THROTTLER_DEFAULT_TTL', 60000),
-          limit: configService.get<number>('THROTTLER_DEFAULT_LIMIT', 100),
+          limit: configService.get<number>('THROTTLER_DEFAULT_LIMIT', 100000),
         },
         {
           name: 'short',
           ttl: configService.get<number>('THROTTLER_SHORT_TTL', 1000),
-          limit: configService.get<number>('THROTTLER_SHORT_LIMIT', 30),
+          limit: configService.get<number>('THROTTLER_SHORT_LIMIT', 30000),
         },
         {
           name: 'medium',
           ttl: configService.get<number>('THROTTLER_MEDIUM_TTL', 10000),
-          limit: configService.get<number>('THROTTLER_MEDIUM_LIMIT', 200),
+          limit: configService.get<number>('THROTTLER_MEDIUM_LIMIT', 200000),
         },
         {
           name: 'long',
           ttl: configService.get<number>('THROTTLER_LONG_TTL', 60000),
-          limit: configService.get<number>('THROTTLER_LONG_LIMIT', 1000),
+          limit: configService.get<number>('THROTTLER_LONG_LIMIT', 1000000),
         },
       ],
       inject: [ConfigService],
@@ -97,8 +97,11 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
     HttpModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        timeout: configService.get<number>('HTTP_TIMEOUT', 5000),
+        timeout: configService.get<number>('HTTP_TIMEOUT', 300000),
         maxRedirects: configService.get<number>('HTTP_MAX_REDIRECTS', 5),
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity, 
+        validateStatus: (status) => status < 500,
       }),
       inject: [ConfigService],
     }),
