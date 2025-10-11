@@ -1,24 +1,21 @@
-import { Injectable, HttpException, Logger } from '@nestjs/common';
+import { Injectable, HttpException, Logger, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { AxiosResponse } from 'axios';
+import { Request, Response } from 'express';
+import * as http from 'http';
+import * as https from 'https';
 import { IDataset, IDatasetMeta } from './interfaces/dataset.interface';
 import { IChannel, ITimeRange } from './interfaces/channel.interface';
-import {
-  IWindowResponse,
-  IWindowFilteredResponse,
-  IHealthResponse,
-  IApiConstraints,
-} from './interfaces/api-response.interface';
-import { WindowQueryDto, WindowFilteredQueryDto } from './dto/window-query.dto';
-import { Readable } from 'stream';
-import FormData = require('form-data');
+import { IHealthResponse, IApiConstraints } from './interfaces/api-response.interface';
 
 @Injectable()
 export class DatasetService {
   private readonly logger = new Logger(DatasetService.name);
   private readonly datasetServiceBaseUrl: string;
+  private readonly backendHostname: string;
+  private readonly backendPort: number;
+  private readonly isHttps: boolean;
 
   constructor(
     private readonly configService: ConfigService,
@@ -28,10 +25,19 @@ export class DatasetService {
       'DATASET_SERVICE_BASE_URL',
       'http://localhost:8000',
     );
-    this.logger.log(`Dataset Service Base URL: ${this.datasetServiceBaseUrl}`);
+
+    // Parse URL once au démarrage
+    const parsedUrl = new URL(this.datasetServiceBaseUrl);
+    this.backendHostname = parsedUrl.hostname;
+    this.backendPort = parseInt(parsedUrl.port) || (parsedUrl.protocol === 'https:' ? 443 : 8000);
+    this.isHttps = parsedUrl.protocol === 'https:';
+
+    this.logger.log(
+      `Dataset Service configured: ${this.backendHostname}:${this.backendPort} (${this.isHttps ? 'HTTPS' : 'HTTP'})`,
+    );
   }
 
-  // ========== Health ==========
+  // ========== Health (petit, pas besoin de streaming) ==========
   async healthCheck(): Promise<IHealthResponse> {
     try {
       const response = await firstValueFrom(
@@ -49,7 +55,7 @@ export class DatasetService {
     }
   }
 
-  // ========== Datasets ==========
+  // ========== Datasets (petit, pas besoin de streaming) ==========
   async listDatasets(): Promise<IDataset[]> {
     try {
       const response = await firstValueFrom(
@@ -102,7 +108,7 @@ export class DatasetService {
     }
   }
 
-  // ========== Channels ==========
+  // ========== Channels (petit, pas besoin de streaming) ==========
   async listChannels(datasetId: string): Promise<IChannel[]> {
     try {
       const response = await firstValueFrom(
@@ -143,135 +149,6 @@ export class DatasetService {
     }
   }
 
-  // ========== Data Windows ==========
-  async getWindow(
-    query: WindowQueryDto,
-    headers?: any,
-  ): Promise<IWindowResponse | AxiosResponse> {
-    try {
-      const config: any = {
-        params: query,
-      };
-
-      // Forward Accept header for Arrow support
-      if (headers?.accept) {
-        config.headers = { Accept: headers.accept };
-        config.responseType = 'arraybuffer';
-      }
-
-      const response = await firstValueFrom(
-        this.httpService.get(`${this.datasetServiceBaseUrl}/window`, config),
-      );
-
-      return response;
-    } catch (error) {
-      this.logger.error('Failed to get window data', error);
-      throw new HttpException(
-        error.response?.data || 'Failed to get window data',
-        error.response?.status || 500,
-      );
-    }
-  }
-
-  async getWindowFiltered(
-    query: WindowFilteredQueryDto,
-    headers?: any,
-  ): Promise<IWindowFilteredResponse | AxiosResponse> {
-    try {
-      const config: any = {
-        params: query,
-      };
-
-      // Forward Accept header for Arrow support
-      if (headers?.accept) {
-        config.headers = { Accept: headers.accept };
-        config.responseType = 'arraybuffer';
-      }
-
-      const response = await firstValueFrom(
-        this.httpService.get(
-          `${this.datasetServiceBaseUrl}/get_window_filtered`,
-          config,
-        ),
-      );
-
-      return response;
-    } catch (error) {
-      this.logger.error('Failed to get filtered window data', error);
-      throw new HttpException(
-        error.response?.data || 'Failed to get filtered window data',
-        error.response?.status || 500,
-      );
-    }
-  }
-
-  // ========== Ingestion ==========
-  async ingestTdmsFile(file: Express.Multer.File): Promise<any> {
-    try {
-      this.logger.log(`Starting ingestion for file: ${file.originalname} (${file.size} bytes)`);
-      const formData = new FormData();
-      
-      const fileStream = Readable.from(file.buffer);
-      
-      formData.append('file', fileStream, {
-        filename: file.originalname,
-        contentType: file.mimetype,
-        knownLength: file.size, 
-      });
-
-      const contentLength = await new Promise<number>((resolve, reject) => {
-        formData.getLength((err, length) => {
-          if (err) reject(err);
-          else resolve(length);
-        });
-      });
-
-      this.logger.log(`Uploading ${contentLength} bytes to FastAPI...`);
-
-      const response = await firstValueFrom(
-        this.httpService.post(
-          `${this.datasetServiceBaseUrl}/ingest`,
-          formData,
-          {
-            headers: {
-              ...formData.getHeaders(),
-            },
-            maxBodyLength: Infinity,
-            maxContentLength: Infinity,
-            timeout: 600000, 
-            onUploadProgress: (progressEvent) => {
-              const percentCompleted = Math.round(
-                (progressEvent.loaded * 100) / (progressEvent.total || contentLength)
-              );
-              if (percentCompleted % 10 === 0) { 
-                this.logger.log(`Upload progress: ${percentCompleted}%`);
-              }
-            },
-          },
-        ),
-      );
-
-      this.logger.log(`Ingestion completed successfully for ${file.originalname}`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(`Failed to ingest TDMS file: ${file.originalname}`, error);
-      
-      if (error.code === 'ECONNABORTED') {
-        throw new HttpException(
-          'Upload timeout - file too large or network too slow',
-          408,
-        );
-      }
-      
-      throw new HttpException(
-        error.response?.data || 'Failed to ingest file',
-        error.response?.status || 500,
-      );
-    }
-  }
-
-  
-
   async getApiConstraints(): Promise<IApiConstraints> {
     try {
       const response = await firstValueFrom(
@@ -287,5 +164,236 @@ export class DatasetService {
         error.response?.status || 500,
       );
     }
+  }
+
+  async streamGetRequest(
+    path: string,
+    queryParams: any,
+    headers: any,
+    res: Response,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+
+      const queryString = Object.entries(queryParams)
+        .filter(([_, value]) => value !== undefined && value !== null)
+        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+        .join('&');
+
+      const fullPath = queryString ? `${path}?${queryString}` : path;
+
+      this.logger.log(`🚀 Streaming GET ${fullPath}`);
+
+      const httpModule = this.isHttps ? https : http;
+
+      const options: http.RequestOptions = {
+        hostname: this.backendHostname,
+        port: this.backendPort,
+        path: fullPath,
+        method: 'GET',
+        headers: {
+          Accept: headers?.accept || 'application/json',
+          'User-Agent': 'NestJS-API-Gateway/1.0',
+          'Accept-Encoding': 'gzip, deflate', 
+        },
+        timeout: 300000, 
+      };
+
+      const proxyReq = httpModule.request(options, (proxyRes) => {
+        const statusCode = proxyRes.statusCode || 200;
+
+        this.logger.log(`📥 FastAPI responded: ${statusCode}`);
+
+        res.status(statusCode);
+
+        Object.entries(proxyRes.headers).forEach(([key, value]) => {
+          if (value !== undefined) {
+            res.setHeader(key, value);
+          }
+        });
+
+        let downloadedBytes = 0;
+        let lastLoggedMB = 0;
+        const logIntervalMB = 50; 
+
+        proxyRes.on('data', (chunk: Buffer) => {
+          downloadedBytes += chunk.length;
+          const currentMB = Math.floor(downloadedBytes / (1024 * 1024));
+
+          if (currentMB >= lastLoggedMB + logIntervalMB) {
+            this.logger.log(`📥 Downloaded ${currentMB} MB...`);
+            lastLoggedMB = currentMB;
+          }
+        });
+
+        proxyRes.pipe(res);
+
+        proxyRes.on('end', () => {
+          const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+          const sizeMB = (downloadedBytes / (1024 * 1024)).toFixed(2);
+          const speedMBps = (
+            downloadedBytes /
+            1024 /
+            1024 /
+            parseFloat(duration)
+          ).toFixed(2);
+
+          this.logger.log(
+            `✅ Stream completed: ${sizeMB} MB in ${duration}s (${speedMBps} MB/s)`,
+          );
+          resolve();
+        });
+
+        proxyRes.on('error', (error) => {
+          this.logger.error('❌ Error streaming from FastAPI', error);
+          reject(
+            new HttpException(
+              'Error streaming response',
+              HttpStatus.BAD_GATEWAY,
+            ),
+          );
+        });
+      });
+
+      proxyReq.on('error', (error) => {
+        this.logger.error('❌ Connection error', error);
+        reject(
+          new HttpException(
+            `Backend connection failed: ${error.message}`,
+            HttpStatus.SERVICE_UNAVAILABLE,
+          ),
+        );
+      });
+
+      proxyReq.on('timeout', () => {
+        proxyReq.destroy();
+        this.logger.error('⏱️  Request timeout');
+        reject(
+          new HttpException('Request timeout', HttpStatus.REQUEST_TIMEOUT),
+        );
+      });
+
+      proxyReq.end();
+    });
+  }
+
+  async streamPostRequest(
+    path: string,
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+
+      this.logger.log(`🚀 Streaming POST ${path}`);
+
+      const httpModule = this.isHttps ? https : http;
+
+      const options: http.RequestOptions = {
+        hostname: this.backendHostname,
+        port: this.backendPort,
+        path: path,
+        method: 'POST',
+        headers: {
+          ...req.headers, 
+          host: this.backendHostname, 
+          connection: 'keep-alive',
+        },
+        timeout: 1800000, 
+      };
+
+      const proxyReq = httpModule.request(options, (proxyRes) => {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+        this.logger.log(
+          `📥 FastAPI responded: ${proxyRes.statusCode} after ${duration}s`,
+        );
+
+        res.status(proxyRes.statusCode || 200);
+        Object.entries(proxyRes.headers).forEach(([key, value]) => {
+          if (value !== undefined) {
+            res.setHeader(key, value);
+          }
+        });
+
+        proxyRes.pipe(res);
+
+        proxyRes.on('end', () => {
+          const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
+          this.logger.log(`✅ POST stream completed in ${totalDuration}s`);
+          resolve();
+        });
+
+        proxyRes.on('error', (error) => {
+          this.logger.error('❌ Error receiving response', error);
+          reject(
+            new HttpException(
+              'Error receiving backend response',
+              HttpStatus.BAD_GATEWAY,
+            ),
+          );
+        });
+      });
+
+      proxyReq.on('error', (error) => {
+        this.logger.error('❌ POST connection error', error);
+        reject(
+          new HttpException(
+            `Backend connection failed: ${error.message}`,
+            HttpStatus.SERVICE_UNAVAILABLE,
+          ),
+        );
+      });
+
+      proxyReq.on('timeout', () => {
+        proxyReq.destroy();
+        this.logger.error('⏱️  POST timeout');
+        reject(
+          new HttpException('Backend timeout', HttpStatus.REQUEST_TIMEOUT),
+        );
+      });
+
+      let uploadedBytes = 0;
+      let lastLoggedMB = 0;
+      const logIntervalMB = 10;
+
+      req.on('data', (chunk: Buffer) => {
+        uploadedBytes += chunk.length;
+        const currentMB = Math.floor(uploadedBytes / (1024 * 1024));
+
+        if (currentMB >= lastLoggedMB + logIntervalMB) {
+          this.logger.log(`📤 Uploaded ${currentMB} MB...`);
+          lastLoggedMB = currentMB;
+        }
+      });
+
+      req.on('end', () => {
+        const sizeMB = (uploadedBytes / (1024 * 1024)).toFixed(2);
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        const speedMBps = (
+          uploadedBytes /
+          1024 /
+          1024 /
+          parseFloat(duration)
+        ).toFixed(2);
+
+        this.logger.log(
+          `📊 Upload complete: ${sizeMB} MB in ${duration}s (${speedMBps} MB/s)`,
+        );
+      });
+
+      req.on('error', (error) => {
+        this.logger.error('❌ Error reading request', error);
+        proxyReq.destroy();
+        reject(
+          new HttpException(
+            'Error reading request',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          ),
+        );
+      });
+
+      req.pipe(proxyReq);
+    });
   }
 }

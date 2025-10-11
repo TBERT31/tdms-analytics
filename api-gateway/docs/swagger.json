@@ -359,6 +359,7 @@
     },
     "/dataset/window": {
       "get": {
+        "description": "Streams data directly from FastAPI without buffering. Supports both JSON and Apache Arrow formats with minimal overhead.",
         "operationId": "DatasetController_getWindow",
         "parameters": [
           {
@@ -449,7 +450,7 @@
             "description": "Windowed sensor data (JSON or Arrow format)"
           }
         },
-        "summary": "Get windowed sensor data with downsampling",
+        "summary": "Get windowed sensor data with streaming (JSON or Arrow)",
         "tags": [
           "Datasets"
         ]
@@ -457,6 +458,7 @@
     },
     "/dataset/get_window_filtered": {
       "get": {
+        "description": "Streams filtered data directly from FastAPI without buffering. Supports both JSON and Apache Arrow formats with minimal overhead.",
         "operationId": "DatasetController_getWindowFiltered",
         "parameters": [
           {
@@ -537,7 +539,7 @@
             "description": "Filtered window data (JSON or Arrow format)"
           }
         },
-        "summary": "Get filtered and paginated window data",
+        "summary": "Get filtered window data with streaming (JSON or Arrow)",
         "tags": [
           "Datasets"
         ]
@@ -545,7 +547,7 @@
     },
     "/dataset/ingest": {
       "post": {
-        "description": "Streams the file directly to FastAPI backend without buffering in memory. This is optimized for very large files (GB to TB range) with minimal overhead.",
+        "description": "Streams the file directly to FastAPI backend without buffering in memory. This is optimized for very large files (GB to TB range) with < 5% overhead.",
         "operationId": "DatasetController_ingestTdmsFileStream",
         "parameters": [],
         "requestBody": {
@@ -590,7 +592,7 @@
             "description": "Ingestion failed"
           }
         },
-        "summary": "Ingest TDMS file via streaming proxy (optimized for large files)",
+        "summary": "Ingest TDMS file via streaming proxy (zero-copy)",
         "tags": [
           "Datasets"
         ]

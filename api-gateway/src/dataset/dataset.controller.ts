@@ -5,8 +5,6 @@ import {
   Delete,
   Query,
   Param,
-  UseInterceptors,
-  UploadedFile,
   ParseUUIDPipe,
   ValidationPipe,
   Req,
@@ -14,7 +12,6 @@ import {
   HttpStatus,
   HttpException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -48,7 +45,7 @@ export class DatasetController {
 
   // ========== Datasets ==========
   @Get('datasets')
-//   @Roles('ADMIN', 'USER')
+  @Roles('ADMIN', 'USER')
   @ApiOperation({ summary: 'List all datasets' })
   @ApiResponse({
     status: 200,
@@ -60,7 +57,7 @@ export class DatasetController {
   }
 
   @Get('dataset_meta')
-//   @Roles('ADMIN', 'USER')
+  @Roles('ADMIN', 'USER')
   @ApiOperation({ summary: 'Get dataset metadata' })
   @ApiQuery({
     name: 'dataset_id',
@@ -81,7 +78,7 @@ export class DatasetController {
   }
 
   @Delete('datasets/:datasetId')
-//   @Roles('ADMIN')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Delete a dataset' })
   @ApiParam({
     name: 'datasetId',
@@ -108,7 +105,7 @@ export class DatasetController {
 
   // ========== Channels ==========
   @Get('datasets/:datasetId/channels')
-//   @Roles('ADMIN', 'USER')
+  @Roles('ADMIN', 'USER')
   @ApiOperation({ summary: 'List channels for a dataset' })
   @ApiParam({
     name: 'datasetId',
@@ -129,7 +126,7 @@ export class DatasetController {
   }
 
   @Get('channels/:channelId/time_range')
-//   @Roles('ADMIN', 'USER')
+  @Roles('ADMIN', 'USER')
   @ApiOperation({ summary: 'Get channel time range' })
   @ApiParam({
     name: 'channelId',
@@ -149,10 +146,15 @@ export class DatasetController {
     return this.datasetService.getChannelTimeRange(channelId);
   }
 
-  // ========== Data Windows ==========
+  // ========== Data Windows avec STREAMING ==========
   @Get('window')
-//   @Roles('ADMIN', 'USER')
-  @ApiOperation({ summary: 'Get windowed sensor data with downsampling' })
+  @Roles('ADMIN', 'USER')
+  @ApiOperation({
+    summary: 'Get windowed sensor data with streaming (JSON or Arrow)',
+    description:
+      'Streams data directly from FastAPI without buffering. ' +
+      'Supports both JSON and Apache Arrow formats with minimal overhead.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Windowed sensor data (JSON or Arrow format)',
@@ -161,25 +163,43 @@ export class DatasetController {
     @Query(new ValidationPipe({ transform: true })) query: WindowQueryDto,
     @Req() req: Request,
     @Res() res: Response,
-  ) {
-    const response = await this.datasetService.getWindow(query, req.headers);
+  ): Promise<void> {
+    try {
+      const isArrowRequest = req.headers.accept?.includes(
+        'application/vnd.apache.arrow.stream',
+      );
 
-    // Handle Arrow response
-    if (req.headers.accept?.includes('application/vnd.apache.arrow.stream')) {
-      if ('data' in response) {
+      if (isArrowRequest) {
         res.set('Content-Type', 'application/vnd.apache.arrow.stream');
         res.set('Content-Disposition', 'attachment; filename="window.arrow"');
-        return res.send(response.data);
+      } else {
+        res.set('Content-Type', 'application/json');
+      }
+
+      await this.datasetService.streamGetRequest(
+        '/window',
+        query,
+        req.headers,
+        res,
+      );
+    } catch (error) {
+      if (!res.headersSent) {
+        throw new HttpException(
+          error.message || 'Failed to get window data',
+          error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     }
-
-    const data = 'data' in response ? response.data : response;
-    return res.json(data);
   }
 
   @Get('get_window_filtered')
-//   @Roles('ADMIN', 'USER')
-  @ApiOperation({ summary: 'Get filtered and paginated window data' })
+  @Roles('ADMIN', 'USER')
+  @ApiOperation({
+    summary: 'Get filtered window data with streaming (JSON or Arrow)',
+    description:
+      'Streams filtered data directly from FastAPI without buffering. ' +
+      'Supports both JSON and Apache Arrow formats with minimal overhead.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Filtered window data (JSON or Arrow format)',
@@ -189,33 +209,47 @@ export class DatasetController {
     query: WindowFilteredQueryDto,
     @Req() req: Request,
     @Res() res: Response,
-  ) {
-    const response = await this.datasetService.getWindowFiltered(
-      query,
-      req.headers,
-    );
+  ): Promise<void> {
+    try {
+      const isArrowRequest = req.headers.accept?.includes(
+        'application/vnd.apache.arrow.stream',
+      );
 
-    // Handle Arrow response
-    if (req.headers.accept?.includes('application/vnd.apache.arrow.stream')) {
-      if ('data' in response) {
+      if (isArrowRequest) {
         res.set('Content-Type', 'application/vnd.apache.arrow.stream');
         res.set(
           'Content-Disposition',
           'attachment; filename="window_filtered.arrow"',
         );
-        return res.send(response.data);
+      } else {
+        res.set('Content-Type', 'application/json');
+      }
+
+      await this.datasetService.streamGetRequest(
+        '/get_window_filtered',
+        query,
+        req.headers,
+        res,
+      );
+    } catch (error) {
+      if (!res.headersSent) {
+        throw new HttpException(
+          error.message || 'Failed to get filtered window data',
+          error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     }
-
-    const data = 'data' in response ? response.data : response;
-    return res.json(data);
   }
 
-  // ========== Ingestion ==========
+  // ========== Ingestion avec STREAMING ==========
   @Post('ingest')
-//   @Roles('ADMIN')
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiOperation({ summary: 'Ingest TDMS file into ClickHouse' })
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'Ingest TDMS file via streaming proxy (zero-copy)',
+    description:
+      'Streams the file directly to FastAPI backend without buffering in memory. ' +
+      'This is optimized for very large files (GB to TB range) with < 5% overhead.',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'TDMS file to ingest',
@@ -236,23 +270,31 @@ export class DatasetController {
     description: 'File ingested successfully',
     type: IngestResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid file or file type' })
+  @ApiResponse({ status: 400, description: 'Invalid file or Content-Type' })
   @ApiResponse({ status: 500, description: 'Ingestion failed' })
-  async ingestTdmsFile(
-    @UploadedFile() file: Express.Multer.File,
-  ): Promise<IngestResponseDto> {
-    if (!file) {
-      throw new HttpException('No file provided', HttpStatus.BAD_REQUEST);
-    }
-
-    if (!file.originalname.toLowerCase().endsWith('.tdms')) {
+  @ApiResponse({ status: 408, description: 'Request timeout' })
+  async ingestTdmsFileStream(
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    const contentType = req.headers['content-type'];
+    if (!contentType?.includes('multipart/form-data')) {
       throw new HttpException(
-        'Only TDMS files are supported',
+        'Content-Type must be multipart/form-data',
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    return this.datasetService.ingestTdmsFile(file);
+    try {
+      await this.datasetService.streamPostRequest('/ingest', req, res);
+    } catch (error) {
+      if (!res.headersSent) {
+        throw new HttpException(
+          error.message || 'Failed to ingest file',
+          error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+    }
   }
 
   @Get('api/constraints')
