@@ -12,7 +12,16 @@ export class HttpCacheInterceptor extends CacheInterceptor {
     const requestUrl = httpAdapter.getRequestUrl(request) as string;
 
     const isGetRequest = requestMethod === 'GET';
-    const excludePrefixes = ['/api/metrics', '/api/alive'];
+    const excludePrefixes = [
+      '/api/metrics',
+      '/api/alive',
+      '/auth/check-session',  
+      '/auth/login',
+      '/auth/logout',
+      '/auth/callback',
+      '/auth/signup',
+      '/users/me',
+    ];
 
     if (
       !isGetRequest ||

@@ -110,7 +110,23 @@ export async function bootstrap(): Promise<INestApplication> {
   app.useGlobalGuards(new RolesGuard(new Reflector()));
 
   app.enableShutdownHooks();
-  app.enableCors();
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
+    exposedHeaders: ['Set-Cookie'],
+  });
 
   await app.listen(process.env.PORT ?? 3001);
   console.info(`App listening on PORT ${process.env.PORT ?? 3001}`, undefined);

@@ -6,6 +6,7 @@ import {
   Request,
   Res,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AuthenticatedRequest } from '../common/auth/interfaces/authenticated-request';
@@ -20,6 +21,7 @@ import {
   ApiLogoutOperation,
   ApiCallbackOperation,
 } from '../common/decorators/auth-swagger.decorators';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -113,10 +115,27 @@ export class AuthController implements OnModuleInit {
   @Get('/check-session')
   checkSession(@Request() req: AuthenticatedRequest, @Res() res: Response) {
     const authStatus = this.authService.checkAuthenticationStatus(req);
-    if (authStatus.isAuthenticated) {
-      return res.status(HttpStatus.OK).json(authStatus);
+
+    const cleanAuthStatus = {
+      isAuthenticated: authStatus.isAuthenticated,
+      user: authStatus.isAuthenticated ? {
+        userinfo: {
+          email: authStatus.user?.userinfo?.email,
+          preferred_username: authStatus.user?.userinfo?.preferred_username,
+          name: authStatus.user?.userinfo?.name,
+          given_name: authStatus.user?.userinfo?.given_name,
+          family_name: authStatus.user?.userinfo?.family_name,
+          email_verified: authStatus.user?.userinfo?.email_verified,
+          sub: authStatus.user?.userinfo?.sub,
+          roles: authStatus.user?.userinfo?.roles || [],
+        }
+      } : null,
+    };
+    
+    if (cleanAuthStatus.isAuthenticated) {
+      return res.status(HttpStatus.OK).json(cleanAuthStatus);
     } else {
-      return res.status(HttpStatus.UNAUTHORIZED).json(authStatus);
+      return res.status(HttpStatus.UNAUTHORIZED).json(cleanAuthStatus);
     }
   }
 }

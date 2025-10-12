@@ -6,6 +6,6 @@ export interface UserInfo {
     email?: string;
     preferred_username?: string;
     name?: string;
-    authorizations: string[]; 
+    roles: string[]; 
   };
 }
