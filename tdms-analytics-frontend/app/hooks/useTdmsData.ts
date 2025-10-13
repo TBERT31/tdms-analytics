@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchArrowTable, extractXY } from "@/app/utils/arrow";
+import { datasetApi } from "@/app/services/apiClient";
 
 interface Dataset {
   dataset_id: string;
@@ -42,8 +43,6 @@ export interface TimeRange {
   total_points: number;
 }
 
-const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
-
 export function useTdmsData(config?: { useArrow?: boolean }) {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [datasetId, setDatasetId] = useState<string | null>(null);
@@ -54,11 +53,9 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
   const [loading, setLoading] = useState(false);
   const useArrow = Boolean(config?.useArrow);
 
-  // Chargement des datasets
   const loadDatasets = useCallback(async () => {
     try {
-      const response = await fetch(`${API}/datasets`, { cache: "no-store" });
-      const datasets = await response.json();
+      const datasets = await datasetApi.getDatasets();
       setDatasets(datasets);
       if (!datasetId && datasets?.length) {
         setDatasetId(datasets[0].dataset_id);
@@ -68,11 +65,9 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
     }
   }, [datasetId]);
 
-  // Chargement des channels
   const loadChannels = useCallback(async (selectedDatasetId: string) => {
     try {
-      const response = await fetch(`${API}/datasets/${selectedDatasetId}/channels`, { cache: "no-store" });
-      const channels = await response.json();
+      const channels = await datasetApi.getDatasetChannels(selectedDatasetId);
       setChannels(channels);
       if (channels?.length) {
         setChannelId(channels[0].channel_id);
@@ -84,21 +79,16 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
     }
   }, []);
 
-  // Chargement du time range
   const loadTimeRange = useCallback(async (selectedChannelId: string) => {
     try {
-      const response = await fetch(`${API}/channels/${selectedChannelId}/time_range`, { cache: "no-store" });
-      if (response.ok) {
-        const range = await response.json();
-        setTimeRange(range);
-        console.log("Time range chargé:", range);
-      }
+      const range = await datasetApi.getChannelTimeRange(selectedChannelId);
+      setTimeRange(range);
+      console.log("Time range chargé:", range);
     } catch (error) {
       console.error("Erreur chargement time range:", error);
     }
   }, []);
 
-  // Chargement de la vue globale
   const loadGlobalView = useCallback(async (
     selectedChannelId: string,
     globalPoints: number,
@@ -117,20 +107,18 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
       });
 
       if (startWindow !== null && startWindow !== undefined) {
-      params.append("start_timestamp", String(startWindow));
+        params.append("start_timestamp", String(startWindow));
       }
       if (endWindow !== null && endWindow !== undefined) {
         params.append("end_timestamp", String(endWindow));
       }
 
-      const url = `${API}/get_window_filtered?${params}`;
-
       if (useArrow) {
         try {
-          const table = await fetchArrowTable(url); // => Table Arrow ou throw "NOT_ARROW"
+          // ⭐ Passe directement les params à fetchArrowTable
+          const table = await fetchArrowTable(params);
           const { x, y } = extractXY(table);
 
-          // has_time & unit via états déjà disponibles
           const has_time =
             timeRange?.has_time ??
             channels.find((c) => c.channel_id === selectedChannelId)?.has_time ??
@@ -139,7 +127,6 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
           const unit =
             channels.find((c) => c.channel_id === selectedChannelId)?.unit ?? "";
 
-          // on mappe dans la même shape que JSON pour le reste de l'app
           setGlobalData({
             x: Array.from(x),
             y: Array.from(y),
@@ -154,14 +141,10 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
           return;
         } catch (e: any) {
           if (e?.message !== "NOT_ARROW") throw e;
-          // sinon on retombe en JSON ci-dessous
         }
       }
 
-      // --- Fallback JSON (chemin actuel) ---
-      const response = await fetch(url, { cache: "no-store" });
-      if (!response.ok) throw new Error(await response.text());
-      const result = await response.json();
+      const result = await datasetApi.getWindowFiltered(params);
       setGlobalData(result);
       console.log(
         `Vue globale (JSON) chargée: ${result.original_points} → ${result.sampled_points} points`
@@ -173,46 +156,42 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
     }
   }, [useArrow, timeRange, channels]);
 
-  // Fonction de rechargement pour le zoom
   const createZoomReloadHandler = useCallback(
     (zoomPoints: number, method: "lttb"|"uniform"|"clickhouse" = "lttb") => {
-    return async (range: { start: number; end: number }) => {
-      if (!channelId || !timeRange) {
-        throw new Error("Channel ou time range non disponible");
-      }
-
-      const params = new URLSearchParams({
-        channel_id: channelId,
-        start_timestamp: String(range.start),
-        end_timestamp: String(range.end),
-        points: String(zoomPoints),
-        method,
-        limit: "200000",
-      });
-      const url = `${API}/get_window_filtered?${params}`;
-
-      if (useArrow) {
-        try {
-          const table = await fetchArrowTable(url);
-          const { x, y } = extractXY(table);
-          console.log(`Zoom rechargé (Arrow): ${x.length} points`);
-          return { x: Array.from(x), y: Array.from(y) };
-        } catch (e: any) {
-          if (e?.message !== "NOT_ARROW") throw e;
-          // sinon fallback JSON ci-dessous
+      return async (range: { start: number; end: number }) => {
+        if (!channelId || !timeRange) {
+          throw new Error("Channel ou time range non disponible");
         }
-      }
 
-      // --- Fallback JSON ---
-      const response = await fetch(url, { cache: "no-store" });
-      if (!response.ok) throw new Error(await response.text());
-      const result = await response.json();
-      console.log(`Zoom rechargé (JSON): ${result.original_points} → ${result.sampled_points} points`);
-      return { x: result.x, y: result.y };
-    };
-  }, [channelId, timeRange, useArrow]);
+        const params = new URLSearchParams({
+          channel_id: channelId,
+          start_timestamp: String(range.start),
+          end_timestamp: String(range.end),
+          points: String(zoomPoints),
+          method,
+          limit: "200000",
+        });
 
-  // Effects pour les chargements automatiques
+        if (useArrow) {
+          try {
+            // ⭐ Passe directement les params à fetchArrowTable
+            const table = await fetchArrowTable(params);
+            const { x, y } = extractXY(table);
+            console.log(`Zoom rechargé (Arrow): ${x.length} points`);
+            return { x: Array.from(x), y: Array.from(y) };
+          } catch (e: any) {
+            if (e?.message !== "NOT_ARROW") throw e;
+          }
+        }
+
+        const result = await datasetApi.getWindowFiltered(params);
+        console.log(`Zoom rechargé (JSON): ${result.original_points} → ${result.sampled_points} points`);
+        return { x: result.x, y: result.y };
+      };
+    }, 
+    [channelId, timeRange, useArrow]
+  );
+
   useEffect(() => {
     loadDatasets();
   }, [loadDatasets]);
@@ -222,7 +201,6 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
   }, [datasetId, loadChannels]);
 
   return {
-    // States
     datasets,
     datasetId,
     setDatasetId,
@@ -232,8 +210,6 @@ export function useTdmsData(config?: { useArrow?: boolean }) {
     timeRange,
     globalData,
     loading,
-    
-    // Actions
     loadDatasets,
     loadTimeRange,
     loadGlobalView,

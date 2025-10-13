@@ -1,9 +1,11 @@
 "use client";
+
 import { useRef, useState } from "react";
 import { Upload, FileUp, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { datasetApi } from "@/app/services/apiClient";
 
 export default function UploadBox({ onDone }: { onDone: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -14,19 +16,25 @@ export default function UploadBox({ onDone }: { onDone: () => void }) {
   async function upload() {
     const f = inputRef.current?.files?.[0];
     if (!f) return;
+    
     setBusy(true); 
     setMsg("Upload & ingestion…");
     
     try {
       const fd = new FormData();
       fd.append("file", f);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/ingest`, { 
-        method: "POST", 
-        body: fd 
-      });
-      if (!res.ok) throw new Error(await res.text());
-      setMsg("Dataset ingéré avec succès");
+      
+      await datasetApi.ingestTdms(fd);
+      
+      setMsg("Dataset ingéré avec succès ✅");
       onDone();
+
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.value = '';
+        }
+        setMsg("");
+      }, 2000);
     } catch (e: any) {
       setMsg(`Erreur: ${e.message ?? e}`);
     } finally {

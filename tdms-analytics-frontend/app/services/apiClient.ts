@@ -1,8 +1,6 @@
 const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:3001';
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
 
 interface FetchOptions extends RequestInit {
-  useGateway?: boolean; 
   skipAuthRedirect?: boolean; 
 }
 
@@ -12,14 +10,12 @@ class ApiClient {
     options: FetchOptions = {}
   ): Promise<T> {
     const {
-      useGateway = false,
       skipAuthRedirect = false,
       headers = {},
       ...fetchOptions
     } = options;
 
-    const baseUrl = useGateway ? API_GATEWAY_URL : API_BASE;
-    const url = `${baseUrl}${endpoint}`;
+    const url = `${API_GATEWAY_URL}${endpoint}`;
 
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
@@ -29,8 +25,8 @@ class ApiClient {
     const config: RequestInit = {
       ...fetchOptions,
       headers: defaultHeaders,
-      credentials: 'include', 
-      cache: 'no-store', 
+      credentials: 'include',
+      cache: 'no-store',
     };
 
     try {
@@ -76,13 +72,13 @@ class ApiClient {
     options?: FetchOptions
   ): Promise<T> {
     const { headers, ...restOptions } = options || {};
-
+    const headersWithoutContentType = { ...headers };
+    delete (headersWithoutContentType as any)['Content-Type'];
+    
     return this.request<T>(endpoint, {
       ...restOptions,
       method: 'POST',
-      headers: {
-        ...headers,
-      } as HeadersInit,
+      headers: headersWithoutContentType as HeadersInit,
       body: formData,
     });
   }
@@ -104,16 +100,14 @@ class ApiClient {
   }
 
   async fetchArrow(endpoint: string, options?: FetchOptions): Promise<Response> {
-    const { useGateway = false, ...fetchOptions } = options || {};
-    const baseUrl = useGateway ? API_GATEWAY_URL : API_BASE;
-    const url = `${baseUrl}${endpoint}`;
+    const url = `${API_GATEWAY_URL}${endpoint}`;
 
     const response = await fetch(url, {
-      ...fetchOptions,
-      credentials: 'include',
+      ...options,
+      credentials: 'include', 
       headers: {
         'Accept': 'application/vnd.apache.arrow.stream',
-        ...fetchOptions.headers,
+        ...options?.headers,
       },
     });
 
@@ -128,40 +122,40 @@ class ApiClient {
 export const apiClient = new ApiClient();
 
 export const datasetApi = {
+  // Datasets
   getDatasets: () => 
-    apiClient.get<any[]>('/datasets'),
+    apiClient.get<any[]>('/dataset/datasets'),
   
   getDatasetChannels: (datasetId: string) => 
-    apiClient.get<any[]>(`/datasets/${datasetId}/channels`),
-  
+    apiClient.get<any[]>(`/dataset/datasets/${datasetId}/channels`),
+
   getChannelTimeRange: (channelId: string) => 
-    apiClient.get<any>(`/channels/${channelId}/time_range`),
+    apiClient.get<any>(`/dataset/channels/${channelId}/time_range`),
   
   getWindowFiltered: (params: URLSearchParams) => 
-    apiClient.get<any>(`/get_window_filtered?${params}`),
+    apiClient.get<any>(`/dataset/get_window_filtered?${params}`),
   
   getWindowFilteredArrow: (params: URLSearchParams) => 
-    apiClient.fetchArrow(`/get_window_filtered?${params}`),
+    apiClient.fetchArrow(`/dataset/get_window_filtered?${params}`),
   
   ingestTdms: (formData: FormData) => 
-    apiClient.postFormData<any>('/ingest', formData),
+    apiClient.postFormData<any>('/dataset/ingest', formData),
   
   getConstraints: () => 
-    apiClient.get<any>('/api/constraints'),
+    apiClient.get<any>('/dataset/api/constraints'),
   
   getMultiWindow: (channelIds: string, points: number, agg: string) => 
-    apiClient.get<any>(`/multi_window?channel_ids=${channelIds}&points=${points}&agg=${agg}`),
+    apiClient.get<any>(`/dataset/multi_window?channel_ids=${channelIds}&points=${points}&agg=${agg}`),
 };
 
 export const authApi = {
   checkSession: () => 
     apiClient.get<any>('/auth/check-session', { 
-      useGateway: true, 
       skipAuthRedirect: true 
     }),
   
   getMe: () => 
-    apiClient.get<any>('/users/me', { useGateway: true }),
+    apiClient.get<any>('/users/me'),
   
   logout: () => {
     window.location.href = `${API_GATEWAY_URL}/auth/logout`;

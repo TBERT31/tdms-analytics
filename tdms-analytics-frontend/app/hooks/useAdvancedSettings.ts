@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
+import { datasetApi } from "@/app/services/apiClient";
 
 interface BackendConstraints {
   points: { min: number; max: number };
   limit: { min: number; max: number };
 }
 
-const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
-
 export function useAdvancedSettings() {
-  // Paramètres configurables avec valeurs par défaut des variables d'environnement
   const [globalPoints, setGlobalPoints] = useState(
     Number(process.env.NEXT_PUBLIC_DEFAULT_GLOBAL_POINTS) || 2000
   );
@@ -21,7 +19,6 @@ export function useAdvancedSettings() {
 
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
-  // Contraintes backend (chargées dynamiquement depuis l'API)
   const [backendConstraints, setBackendConstraints] = useState<BackendConstraints>({
     points: { min: 10, max: 20000 },
     limit: { min: 10000, max: 200000 }
@@ -33,16 +30,12 @@ export function useAdvancedSettings() {
 
   const [downsamplingMethod, setDownsamplingMethod] = useState<"lttb"|"uniform"|"clickhouse">("lttb");
 
-  // Chargement des contraintes backend au démarrage
   useEffect(() => {
     const loadConstraints = async () => {
       try {
-        const response = await fetch(`${API}/api/constraints`);
-        if (response.ok) {
-          const constraints = await response.json();
-          setBackendConstraints(constraints);
-          console.log("Contraintes backend chargées:", constraints);
-        }
+        const constraints = await datasetApi.getConstraints();
+        setBackendConstraints(constraints);
+        console.log("Contraintes backend chargées:", constraints);
       } catch (error) {
         console.warn("Impossible de charger les contraintes backend, utilisation des valeurs par défaut:", error);
       }
@@ -50,7 +43,6 @@ export function useAdvancedSettings() {
     loadConstraints();
   }, []);
 
-  // Validation des paramètres
   const validateParam = (value: number, type: 'points' | 'limit') => {
     const constraints = backendConstraints[type];
     return {
@@ -60,21 +52,18 @@ export function useAdvancedSettings() {
     };
   };
 
-  // Fonction pour réinitialiser les paramètres par défaut
   const resetToDefaults = () => {
     setGlobalPoints(Number(process.env.NEXT_PUBLIC_DEFAULT_GLOBAL_POINTS) || 2000);
     setZoomPoints(Number(process.env.NEXT_PUBLIC_DEFAULT_ZOOM_POINTS) || 3000);
     setRequestLimit(Number(process.env.NEXT_PUBLIC_DEFAULT_INITIAL_LIMIT) || 100000);
   };
 
-  // Validation globale
   const allParamsValid = 
     validateParam(globalPoints, 'points').isValid && 
     validateParam(zoomPoints, 'points').isValid && 
     validateParam(requestLimit, 'limit').isValid;
 
   return {
-    // États
     globalPoints,
     setGlobalPoints,
     zoomPoints,
@@ -84,17 +73,11 @@ export function useAdvancedSettings() {
     showAdvancedSettings,
     setShowAdvancedSettings,
     backendConstraints,
-    
-    // Utilitaires
     validateParam,
     resetToDefaults,
     allParamsValid,
-
-    // IPC Stream Apache Arrow
     arrowEnabled,
     setArrowEnabled,
-
-    // Downsampling method settings
     downsamplingMethod, 
     setDownsamplingMethod,
   };

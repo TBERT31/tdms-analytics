@@ -1,9 +1,10 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
 import PlotClient from "./components/PlotClient";
 import UploadBox from "./components/UploadBox";
+import { datasetApi } from "@/app/services/apiClient";
 
-// Types mis à jour
 interface Dataset {
   id: number;
   filename: string;
@@ -32,8 +33,6 @@ interface WindowResp {
   method?: string;
 }
 
-const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
-
 export default function Page() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [datasetId, setDatasetId] = useState<number | null>(null);
@@ -48,22 +47,28 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
 
   async function loadDatasets() {
-    const response = await fetch(`${API}/datasets`, { cache: "no-store" });
-    const datasets = await response.json();
-    setDatasets(datasets);
-    if (!datasetId && datasets?.length) {
-      setDatasetId(datasets[0].id);
+    try {
+      const datasets = await datasetApi.getDatasets();
+      setDatasets(datasets);
+      if (!datasetId && datasets?.length) {
+        setDatasetId(datasets[0].id);
+      }
+    } catch (error) {
+      console.error("Erreur chargement datasets:", error);
     }
   }
 
   async function loadChannels(selectedDatasetId: number) {
-    const response = await fetch(`${API}/datasets/${selectedDatasetId}/channels`, { cache: "no-store" });
-    const channels = await response.json();
-    setChannels(channels);
-    if (channels?.length) {
-      setChannelId(channels[0].id);
-    } else {
-      setChannelId(null);
+    try {
+      const channels = await datasetApi.getDatasetChannels(selectedDatasetId.toString());
+      setChannels(channels);
+      if (channels?.length) {
+        setChannelId(channels[0].id);
+      } else {
+        setChannelId(null);
+      }
+    } catch (error) {
+      console.error("Erreur chargement channels:", error);
     }
   }
 
@@ -77,12 +82,12 @@ export default function Page() {
         relative: "true"
       });
       
-      const response = await fetch(`${API}/window?${params}`, { cache: "no-store" });
-      if (!response.ok) throw new Error(await response.text());
-      const result = await response.json();
+      const result = await datasetApi.getWindowFiltered(params);
       
       console.log(`Downsampling: ${result.original_points} → ${result.returned_points} points (${result.method})`);
       setWindowData(result);
+    } catch (error) {
+      console.error("Erreur chargement window:", error);
     } finally {
       setLoading(false);
     }
