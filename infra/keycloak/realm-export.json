@@ -811,7 +811,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "**********",
+      "secret": "yR5USuaJ0I9Q6wobYCi2bH7AfQHpEtfb",
       "redirectUris": [
         "http://localhost:3000/auth/callback",
         "http://localhost:3001/auth/callback",

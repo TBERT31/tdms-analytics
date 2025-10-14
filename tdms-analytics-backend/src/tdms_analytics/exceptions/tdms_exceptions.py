@@ -1,5 +1,13 @@
+"""Custom exceptions for TDMS Analytics."""
+
+
 class TDMSException(Exception):
     """Base exception for TDMS analytics."""
+    pass
+
+
+class TDMSAnalyticsError(TDMSException):
+    """Base exception for TDMS Analytics."""
     pass
 
 
@@ -25,4 +33,9 @@ class InvalidDataError(TDMSException):
 
 class IngestionError(TDMSException):
     """Raised when data ingestion fails."""
+    pass
+
+
+class ForbiddenAccessError(TDMSException):
+    """User does not have access to the requested resource."""
     pass

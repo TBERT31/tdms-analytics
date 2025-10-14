@@ -91,21 +91,16 @@ class ClickHouseClient:
                 logger.error(f"Insert failed: {e}")
                 raise
 
-    # ======= AJOUT : insertion Arrow columnaire =======
     def insert_arrow_table(self, table_name: str, arrow_table) -> None:
-        """
-        Insert a pyarrow.Table using ClickHouse native Arrow path.
-        """
+        """Insert a pyarrow.Table using ClickHouse native Arrow path."""
         with self._lock:
             if not self._client:
                 raise ClickHouseConnectionError("No active connection")
             try:
-                # clickhouse-connect >= 0.6.6 expose insert_arrow
                 self._client.insert_arrow(table_name, arrow_table)
             except Exception as e:
                 logger.error(f"Arrow insert failed: {e}")
                 raise
-    # ================================================
 
     def _create_tables(self) -> None:
         """Create all required tables and views."""
@@ -113,11 +108,12 @@ class ClickHouseClient:
             "datasets": f"""
                 CREATE TABLE IF NOT EXISTS datasets (
                     dataset_id   UUID,
+                    user_id      String,
                     filename     String,
                     created_at   DateTime64(3),
                     total_points UInt64
                 ) ENGINE = MergeTree()
-                ORDER BY dataset_id
+                ORDER BY (user_id, dataset_id)
             """,
             "channels": f"""
                 CREATE TABLE IF NOT EXISTS channels (
@@ -131,7 +127,6 @@ class ClickHouseClient:
                 ) ENGINE = MergeTree()
                 ORDER BY (dataset_id, channel_id)
             """,
-            # DDL renforcé pour de bonnes lectures par dataset + temps
             "sensor_data": f"""
                 CREATE TABLE IF NOT EXISTS sensor_data (
                     dataset_id     UUID,

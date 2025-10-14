@@ -10,6 +10,13 @@ class AppSettings(BaseSettings):
         extra="ignore"
     )
 
+    # ========== SECURITY ==========
+    # Secret partagé avec l'API Gateway pour l'authentification
+    gateway_secret: str = Field(
+        default="", 
+        description="Shared secret with API Gateway for authentication"
+    )
+
     # ClickHouse Configuration
     clickhouse_host: str = Field(default="localhost", description="ClickHouse host")
     clickhouse_port: int = Field(default=8123, description="ClickHouse HTTP port") 

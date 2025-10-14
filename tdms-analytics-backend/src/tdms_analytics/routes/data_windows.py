@@ -9,9 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from ..app_settings import app_settings
 from ..clients.clickhouse import ClickHouseClient
 from ..dependencies.clickhouse import get_clickhouse_client
+from ..dependencies.auth import get_current_user_id
 from ..enums.downsampling import DownsamplingMethod
-from ..exceptions.tdms_exceptions import ChannelNotFoundError
+from ..exceptions.tdms_exceptions import ChannelNotFoundError, ForbiddenAccessError
 from ..repos.sensor_data_repo import SensorDataRepository
+from ..repos.channel_repo import ChannelRepository
+from ..repos.dataset_repo import DatasetRepository
 from ..utils.lttb import smart_downsample_production
 from ..utils.arrow_response import (
     client_wants_arrow,
@@ -21,6 +24,19 @@ from ..utils.arrow_response import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+async def verify_channel_ownership(
+    channel_id: UUID,
+    user_id: str,
+    clickhouse_client: ClickHouseClient
+) -> None:
+    """Verify that the user owns the dataset associated with this channel."""
+    channel_repo = ChannelRepository(clickhouse_client)
+    channel = channel_repo.get_by_id(channel_id)
+    
+    dataset_repo = DatasetRepository(clickhouse_client)
+    dataset_repo.get_by_id(channel.dataset_id, user_id=user_id)
 
 
 @router.get("/window")
@@ -41,10 +57,14 @@ async def get_window(
         DownsamplingMethod.LTTB, 
         description="lttb|uniform|clickhouse - LTTB par défaut"
     ),
+    user_id: str = Depends(get_current_user_id),
     clickhouse_client: ClickHouseClient = Depends(get_clickhouse_client),
 ) -> Dict[str, Any]:
-    """Get windowed sensor data with downsampling."""
+    """Get windowed sensor data with downsampling (with ownership check)."""
     try:
+        # Verify ownership
+        await verify_channel_ownership(channel_id, user_id, clickhouse_client)
+        
         sensor_repo = SensorDataRepository(clickhouse_client)
         
         # Get time range information
@@ -123,10 +143,8 @@ async def get_window(
             min_time = df["time"].min()
             df["time"] = df["time"] - min_time
 
-        # --------- BRANCHE ARROW ----------
+        # Arrow response if requested
         if client_wants_arrow(request):
-            # On renvoie uniquement les colonnes utiles. Si tu ajoutes plus tard v_min/v_max,
-            # tu peux faire df[["time","value","v_min","v_max"]] tant que ces colonnes existent.
             arrow_df = df[["time", "value"]].copy()
             return dataframe_to_arrow_streaming_response(arrow_df, filename="window.arrow")
 
@@ -139,9 +157,10 @@ async def get_window(
             "method": method.value,
             "original_points": original_points,
             "returned_points": len(df),
-            "returned_points": len(df),
         }
 
+    except ForbiddenAccessError:
+        raise HTTPException(403, "Access forbidden - you don't own this channel's dataset")
     except ChannelNotFoundError:
         raise HTTPException(404, "Channel not found")
     except Exception as e:
@@ -170,10 +189,14 @@ async def get_window_filtered(
         DownsamplingMethod.LTTB, 
         description="lttb|uniform|clickhouse - LTTB par défaut"
     ),
+    user_id: str = Depends(get_current_user_id),
     clickhouse_client: ClickHouseClient = Depends(get_clickhouse_client),
 ) -> Dict[str, Any]:
-    """Get filtered and paginated sensor data window."""
+    """Get filtered and paginated sensor data window (with ownership check)."""
     try:
+        # Verify ownership
+        await verify_channel_ownership(channel_id, user_id, clickhouse_client)
+        
         sensor_repo = SensorDataRepository(clickhouse_client)
         
         # Get time range information
@@ -236,7 +259,7 @@ async def get_window_filtered(
                 "performance": {"optimization": "clickhouse_native"},
             }
         
-        # --------- BRANCHE ARROW ----------
+        # Arrow response if requested
         if client_wants_arrow(request):
             arrow_df = df[["time", "value"]].copy()
             return dataframe_to_arrow_streaming_response(arrow_df, filename="window_filtered.arrow")
@@ -258,6 +281,8 @@ async def get_window_filtered(
             },
         }
 
+    except ForbiddenAccessError:
+        raise HTTPException(403, "Access forbidden - you don't own this channel's dataset")
     except ChannelNotFoundError:
         raise HTTPException(404, "Channel not found")
     except Exception as e:

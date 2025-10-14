@@ -29,6 +29,7 @@ import { ChannelDto } from './dto/channel.dto';
 import { TimeRangeDto } from './dto/time-range.dto';
 import { IngestResponseDto } from './dto/ingest.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { AuthenticatedRequest } from 'src/common/auth/interfaces/authenticated-request';
 
 @Controller('dataset')
 @ApiTags('Datasets')
@@ -52,8 +53,8 @@ export class DatasetController {
     description: 'List of datasets',
     type: [DatasetDto],
   })
-  async listDatasets(): Promise<DatasetDto[]> {
-    return this.datasetService.listDatasets();
+  async listDatasets(@Req() req: AuthenticatedRequest): Promise<DatasetDto[]> {
+    return this.datasetService.listDatasets(req);
   }
 
   @Get('dataset_meta')
@@ -73,8 +74,9 @@ export class DatasetController {
   @ApiResponse({ status: 404, description: 'Dataset not found' })
   async getDatasetMeta(
     @Query('dataset_id', new ParseUUIDPipe()) datasetId: string,
+    @Req() req: AuthenticatedRequest
   ): Promise<DatasetMetaDto> {
-    return this.datasetService.getDatasetMeta(datasetId);
+    return this.datasetService.getDatasetMeta(datasetId, req);
   }
 
   @Delete('datasets/:datasetId')
@@ -99,8 +101,9 @@ export class DatasetController {
   @ApiResponse({ status: 404, description: 'Dataset not found' })
   async deleteDataset(
     @Param('datasetId', new ParseUUIDPipe()) datasetId: string,
+    @Req() req: AuthenticatedRequest,
   ): Promise<{ message: string }> {
-    return this.datasetService.deleteDataset(datasetId);
+    return this.datasetService.deleteDataset(datasetId, req);
   }
 
   // ========== Channels ==========
@@ -121,8 +124,9 @@ export class DatasetController {
   @ApiResponse({ status: 404, description: 'Dataset not found' })
   async listChannels(
     @Param('datasetId', new ParseUUIDPipe()) datasetId: string,
+    @Req() req: AuthenticatedRequest,
   ): Promise<ChannelDto[]> {
-    return this.datasetService.listChannels(datasetId);
+    return this.datasetService.listChannels(datasetId, req);
   }
 
   @Get('channels/:channelId/time_range')
@@ -142,8 +146,9 @@ export class DatasetController {
   @ApiResponse({ status: 404, description: 'Channel not found' })
   async getChannelTimeRange(
     @Param('channelId', new ParseUUIDPipe()) channelId: string,
+    @Req() req: AuthenticatedRequest,
   ): Promise<TimeRangeDto> {
-    return this.datasetService.getChannelTimeRange(channelId);
+    return this.datasetService.getChannelTimeRange(channelId, req);
   }
 
   // ========== Data Windows avec STREAMING ==========
@@ -161,7 +166,7 @@ export class DatasetController {
   })
   async getWindow(
     @Query(new ValidationPipe({ transform: true })) query: WindowQueryDto,
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ): Promise<void> {
     try {
@@ -181,6 +186,7 @@ export class DatasetController {
         query,
         req.headers,
         res,
+        req,
       );
     } catch (error) {
       if (!res.headersSent) {
@@ -207,7 +213,7 @@ export class DatasetController {
   async getWindowFiltered(
     @Query(new ValidationPipe({ transform: true }))
     query: WindowFilteredQueryDto,
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ): Promise<void> {
     try {
@@ -230,6 +236,7 @@ export class DatasetController {
         query,
         req.headers,
         res,
+        req, 
       );
     } catch (error) {
       if (!res.headersSent) {
@@ -274,7 +281,7 @@ export class DatasetController {
   @ApiResponse({ status: 500, description: 'Ingestion failed' })
   @ApiResponse({ status: 408, description: 'Request timeout' })
   async ingestTdmsFileStream(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ): Promise<void> {
     const contentType = req.headers['content-type'];

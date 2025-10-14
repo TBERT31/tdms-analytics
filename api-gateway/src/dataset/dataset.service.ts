@@ -8,6 +8,7 @@ import * as https from 'https';
 import { IDataset, IDatasetMeta } from './interfaces/dataset.interface';
 import { IChannel, ITimeRange } from './interfaces/channel.interface';
 import { IHealthResponse, IApiConstraints } from './interfaces/api-response.interface';
+import { AuthenticatedRequest } from 'src/common/auth/interfaces/authenticated-request';
 
 @Injectable()
 export class DatasetService {
@@ -16,6 +17,7 @@ export class DatasetService {
   private readonly backendHostname: string;
   private readonly backendPort: number;
   private readonly isHttps: boolean;
+  private readonly gatewaySecret: string;
 
   constructor(
     private readonly configService: ConfigService,
@@ -23,8 +25,19 @@ export class DatasetService {
   ) {
     this.datasetServiceBaseUrl = this.configService.get<string>(
       'DATASET_SERVICE_BASE_URL',
-      'http://localhost:8000',
+      'http://localhost:3001/dataset',
     );
+
+    this.gatewaySecret = this.configService.get<string>(
+      'GATEWAY_SECRET',
+      '',
+    );
+
+    if (!this.gatewaySecret) {
+      this.logger.warn(
+        '⚠️  GATEWAY_SECRET not configured! Backend communication is not secure.',
+      );
+    }
 
     // Parse URL once au démarrage
     const parsedUrl = new URL(this.datasetServiceBaseUrl);
@@ -35,6 +48,33 @@ export class DatasetService {
     this.logger.log(
       `Dataset Service configured: ${this.backendHostname}:${this.backendPort} (${this.isHttps ? 'HTTPS' : 'HTTP'})`,
     );
+  }
+
+  private getUserInfo(req: AuthenticatedRequest): { sub: string; email?: string } {
+    if (!req.user?.userinfo?.sub) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    return {
+      sub: req.user.userinfo.sub,
+      email: req.user.userinfo.email,
+    };
+  }
+
+  private buildAuthHeaders(userSub: string, userEmail?: string): Record<string, string> {
+    const headers: Record<string, string> = {
+      'X-User-Sub': userSub,
+      'X-Gateway-Secret': this.gatewaySecret,
+    };
+
+    if (userEmail) {
+      headers['X-User-Email'] = userEmail;
+    }
+
+    return headers;
   }
 
   // ========== Health (petit, pas besoin de streaming) ==========
@@ -56,16 +96,21 @@ export class DatasetService {
   }
 
   // ========== Datasets (petit, pas besoin de streaming) ==========
-  async listDatasets(): Promise<IDataset[]> {
+  async listDatasets(req: AuthenticatedRequest): Promise<IDataset[]> {
+    const { sub, email } = this.getUserInfo(req);
+    
     try {
       const response = await firstValueFrom(
         this.httpService.get<IDataset[]>(
           `${this.datasetServiceBaseUrl}/datasets`,
+          {
+            headers: this.buildAuthHeaders(sub, email),
+          },
         ),
       );
       return response.data;
     } catch (error) {
-      this.logger.error('Failed to list datasets', error);
+      this.logger.error(`Failed to list datasets for user ${sub}`, error);
       throw new HttpException(
         error.response?.data || 'Failed to list datasets',
         error.response?.status || 500,
@@ -73,17 +118,22 @@ export class DatasetService {
     }
   }
 
-  async getDatasetMeta(datasetId: string): Promise<IDatasetMeta> {
+  async getDatasetMeta(datasetId: string, req: AuthenticatedRequest): Promise<IDatasetMeta> {
+    const { sub, email } = this.getUserInfo(req);
+    
     try {
       const response = await firstValueFrom(
         this.httpService.get<IDatasetMeta>(
           `${this.datasetServiceBaseUrl}/dataset_meta`,
-          { params: { dataset_id: datasetId } },
+          { 
+            params: { dataset_id: datasetId },
+            headers: this.buildAuthHeaders(sub, email),
+          },
         ),
       );
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to get dataset meta for ${datasetId}`, error);
+      this.logger.error(`Failed to get dataset meta for ${datasetId} (user: ${sub})`, error);
       throw new HttpException(
         error.response?.data || 'Failed to get dataset metadata',
         error.response?.status || 500,
@@ -91,16 +141,21 @@ export class DatasetService {
     }
   }
 
-  async deleteDataset(datasetId: string): Promise<{ message: string }> {
+  async deleteDataset(datasetId: string, req: AuthenticatedRequest): Promise<{ message: string }> {
+    const { sub, email } = this.getUserInfo(req);
+    
     try {
       const response = await firstValueFrom(
         this.httpService.delete<{ message: string }>(
           `${this.datasetServiceBaseUrl}/datasets/${datasetId}`,
+          {
+            headers: this.buildAuthHeaders(sub, email),
+          },
         ),
       );
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to delete dataset ${datasetId}`, error);
+      this.logger.error(`Failed to delete dataset ${datasetId} (user: ${sub})`, error);
       throw new HttpException(
         error.response?.data || 'Failed to delete dataset',
         error.response?.status || 500,
@@ -109,17 +164,22 @@ export class DatasetService {
   }
 
   // ========== Channels (petit, pas besoin de streaming) ==========
-  async listChannels(datasetId: string): Promise<IChannel[]> {
+  async listChannels(datasetId: string, req: AuthenticatedRequest): Promise<IChannel[]> {
+    const { sub, email } = this.getUserInfo(req);
+    
     try {
       const response = await firstValueFrom(
         this.httpService.get<IChannel[]>(
           `${this.datasetServiceBaseUrl}/datasets/${datasetId}/channels`,
+          {
+            headers: this.buildAuthHeaders(sub, email),
+          },
         ),
       );
       return response.data;
     } catch (error) {
       this.logger.error(
-        `Failed to list channels for dataset ${datasetId}`,
+        `Failed to list channels for dataset ${datasetId} (user: ${sub})`,
         error,
       );
       throw new HttpException(
@@ -129,17 +189,22 @@ export class DatasetService {
     }
   }
 
-  async getChannelTimeRange(channelId: string): Promise<ITimeRange> {
+  async getChannelTimeRange(channelId: string, req: AuthenticatedRequest): Promise<ITimeRange> {
+    const { sub, email } = this.getUserInfo(req);
+    
     try {
       const response = await firstValueFrom(
         this.httpService.get<ITimeRange>(
           `${this.datasetServiceBaseUrl}/channels/${channelId}/time_range`,
+          {
+            headers: this.buildAuthHeaders(sub, email),
+          },
         ),
       );
       return response.data;
     } catch (error) {
       this.logger.error(
-        `Failed to get time range for channel ${channelId}`,
+        `Failed to get time range for channel ${channelId} (user: ${sub})`,
         error,
       );
       throw new HttpException(
@@ -169,9 +234,12 @@ export class DatasetService {
   async streamGetRequest(
     path: string,
     queryParams: any,
-    headers: any,
+    incomingHeaders: any,
     res: Response,
+    req: AuthenticatedRequest,
   ): Promise<void> {
+    const { sub, email } = this.getUserInfo(req);
+
     return new Promise((resolve, reject) => {
       const startTime = Date.now();
 
@@ -192,11 +260,13 @@ export class DatasetService {
         path: fullPath,
         method: 'GET',
         headers: {
-          Accept: headers?.accept || 'application/json',
+          Accept: incomingHeaders?.accept || 'application/json',
           'User-Agent': 'NestJS-API-Gateway/1.0',
-          'Accept-Encoding': 'gzip, deflate', 
+          'Accept-Encoding': 'gzip, deflate',
+          'X-User-Sub': sub,
+          'X-User-Email': email || '',
+          'X-Gateway-Secret': this.gatewaySecret,
         },
-        timeout: 300000, 
       };
 
       const proxyReq = httpModule.request(options, (proxyRes) => {
@@ -279,9 +349,11 @@ export class DatasetService {
 
   async streamPostRequest(
     path: string,
-    req: Request,
+    req: AuthenticatedRequest,
     res: Response,
   ): Promise<void> {
+    const { sub, email } = this.getUserInfo(req);
+
     return new Promise((resolve, reject) => {
       const startTime = Date.now();
 
@@ -295,11 +367,13 @@ export class DatasetService {
         path: path,
         method: 'POST',
         headers: {
-          ...req.headers, 
-          host: this.backendHostname, 
+          ...req.headers,
+          host: this.backendHostname,
           connection: 'keep-alive',
+          'X-User-Sub': sub,
+          'X-User-Email': email || '',
+          'X-Gateway-Secret': this.gatewaySecret,
         },
-        timeout: 1800000, 
       };
 
       const proxyReq = httpModule.request(options, (proxyRes) => {
