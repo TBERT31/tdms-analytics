@@ -81,10 +81,18 @@ class SensorDataRepository:
         columns: List[str],
         data_dict: Dict[str, any],
         chunk_size: int = None,
+        validate_channel: bool = True,
     ) -> None:
         """Insert sensor data using true columnar Arrow path (fast)."""
         if chunk_size is None:
             chunk_size = app_settings.chunk_size
+
+        if validate_channel and "channel_id" in data_dict:
+            channel_id = data_dict["channel_id"][0]  
+            from ..repos.channel_repo import ChannelRepository
+            channel_repo = ChannelRepository(self.client)
+            if not channel_repo.exists(UUID(channel_id)):
+                raise ValueError(f"Channel {channel_id} does not exist - insertion refused")
 
         lengths = {len(data_dict[col]) for col in columns}
         if len(lengths) != 1:

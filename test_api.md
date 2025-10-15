@@ -21,3 +21,13 @@ curl.exe -X GET "http://localhost:3001/dataset/window?channel_id=7a91a017-410a-4
 Measure-Command {curl.exe -X GET "http://localhost:3001/dataset/get_window_filtered?channel_id=7a91a017-410a-4d8e-9827-7da0915264bb&limit=100000&points=2000&method=lttb" -H "Content-Type: application/json" -v}
 
 curl.exe -X DELETE "http://localhost:3001/dataset/datasets/a562371b-3d12-4af5-9956-202b89bf48c8" -H "Cookie: connect.sid=s%3ANlFCBUzUw-Ec78KXDEaP6jIGjvOBC3kS.z89zEM0UdNyofXuwbVEi6dHDjNzxGeCQoXvWILgUVqE" -v
+
+---
+
+curl.exe -X GET "http://localhost:8000/audit/orphan-channels" -H "Cookie: connect.sid=s%3A7owotZbAFxXsnb5Vd6cNpobJ59y28Emv.ps9ds2ZA8W4I%2BHPaEkzOrh84RY51%2BmeUFwFRC48MLp8" -v
+
+curl.exe -X GET "http://localhost:8000/audit/orphan-points" -H "Cookie: connect.sid=s%3A7owotZbAFxXsnb5Vd6cNpobJ59y28Emv.ps9ds2ZA8W4I%2BHPaEkzOrh84RY51%2BmeUFwFRC48MLp8" -v
+
+curl.exe -X GET "http://localhost:8000/audit/check-integrity" -H "Cookie: connect.sid=s%3A7owotZbAFxXsnb5Vd6cNpobJ59y28Emv.ps9ds2ZA8W4I%2BHPaEkzOrh84RY51%2BmeUFwFRC48MLp8" -v
+
+curl.exe -X DELETE "http://localhost:8000/datasets/c22b46e6-fbf8-4b8a-8e5c-084c6001d3d6" -H "Cookie: connect.sid=s%3A7owotZbAFxXsnb5Vd6cNpobJ59y28Emv.ps9ds2ZA8W4I%2BHPaEkzOrh84RY51%2BmeUFwFRC48MLp8" -v

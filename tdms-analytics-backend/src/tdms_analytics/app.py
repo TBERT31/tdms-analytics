@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from .app_settings import app_settings
 
-from .routes import channels, data_windows, datasets, health, ingestion
+from .routes import channels, data_windows, datasets, health, ingestion, monitoring
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(datasets.router, tags=["Datasets"])
     app.include_router(channels.router, tags=["Channels"])
     app.include_router(data_windows.router, tags=["Data Windows"])
+    app.include_router(monitoring.router, tags=["Monitoring"]) 
 
     return app
 

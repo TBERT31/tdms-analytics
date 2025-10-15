@@ -115,6 +115,7 @@ class ClickHouseClient:
                 ) ENGINE = MergeTree()
                 ORDER BY (user_id, dataset_id)
             """,
+            
             "channels": f"""
                 CREATE TABLE IF NOT EXISTS channels (
                     channel_id   UUID,
@@ -127,6 +128,7 @@ class ClickHouseClient:
                 ) ENGINE = MergeTree()
                 ORDER BY (dataset_id, channel_id)
             """,
+            
             "sensor_data": f"""
                 CREATE TABLE IF NOT EXISTS sensor_data (
                     dataset_id     UUID,
@@ -140,6 +142,27 @@ class ClickHouseClient:
                 ORDER BY (dataset_id, channel_id, is_time_series, timestamp, sample_index)
                 SETTINGS index_granularity = 8192
             """,
+            
+            "audit_orphans_channels": f"""
+                CREATE TABLE IF NOT EXISTS audit_orphans_channels (
+                    event_time DateTime DEFAULT now(),
+                    dataset_id UUID,
+                    channel_id UUID,
+                    group_name String,
+                    channel_name String
+                ) ENGINE = MergeTree()
+                ORDER BY event_time
+            """,
+            
+            "audit_orphans_points": f"""
+                CREATE TABLE IF NOT EXISTS audit_orphans_points (
+                    event_time DateTime DEFAULT now(),
+                    dataset_id UUID,
+                    channel_id UUID,
+                    count_rows UInt64
+                ) ENGINE = MergeTree()
+                ORDER BY event_time
+            """,
         }
 
         for table_name, ddl in tables.items():
@@ -148,6 +171,49 @@ class ClickHouseClient:
                 logger.info(f"Table {table_name} created/verified")
             except Exception as e:
                 logger.error(f"Failed to create table {table_name}: {e}")
+                raise
+        
+        # Create materialized views
+        self._create_audit_views()
+
+    def _create_audit_views(self) -> None:
+        """Create materialized views for data integrity monitoring."""
+        views = {
+            "mv_orphan_channels_on_insert": f"""
+                CREATE MATERIALIZED VIEW IF NOT EXISTS mv_orphan_channels_on_insert
+                TO audit_orphans_channels AS
+                SELECT
+                    now() AS event_time,
+                    c.dataset_id,
+                    c.channel_id,
+                    c.group_name,
+                    c.channel_name
+                FROM channels AS c
+                LEFT JOIN datasets AS d ON c.dataset_id = d.dataset_id
+                WHERE d.dataset_id IS NULL
+            """,
+            
+            "mv_orphan_points_on_insert": f"""
+                CREATE MATERIALIZED VIEW IF NOT EXISTS mv_orphan_points_on_insert
+                TO audit_orphans_points AS
+                SELECT
+                    now() AS event_time,
+                    s.dataset_id,
+                    s.channel_id,
+                    count() AS count_rows
+                FROM sensor_data AS s
+                LEFT JOIN channels AS c ON s.channel_id = c.channel_id
+                WHERE c.channel_id IS NULL
+                GROUP BY s.dataset_id, s.channel_id
+            """,
+        }
+        
+        for view_name, ddl in views.items():
+            try:
+                self._execute(ddl)
+                logger.info(f"Materialized view {view_name} created/verified")
+            except Exception as e:
+                logger.error(f"Failed to create view {view_name}: {e}")
                 raise
 
     def new_dataset_id(self) -> UUID:

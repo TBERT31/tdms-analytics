@@ -231,7 +231,7 @@ def _extract_unit(channel) -> str:
 def _save_to_clickhouse(
     channels_data: List[Dict[str, Any]],
     dataset_id: UUID,
-    user_id: str,  # AJOUT: paramètre user_id
+    user_id: str, 
     filename: str,
     total_points: int,
     clickhouse_client: ClickHouseClient
