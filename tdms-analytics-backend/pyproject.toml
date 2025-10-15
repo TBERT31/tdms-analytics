@@ -17,7 +17,8 @@ dependencies = [
     "python-multipart>=0.0.9,<1.0.0",
     "npTDMS>=1.8.0,<2.0.0",
     "pyarrow>=21.0.0,<22.0.0",
-    "lttb (>=0.3.2,<0.4)"
+    "lttb (>=0.3.2,<0.4)",
+    "apscheduler (>=3.11.0,<4.0.0)"
 ]
 
 [tool.poetry]

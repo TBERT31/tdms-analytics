@@ -8,6 +8,9 @@ from .app_settings import app_settings
 
 from .routes import channels, data_windows, datasets, health, ingestion, monitoring
 
+from .clients.clickhouse import ClickHouseClient
+from .tasks.cleanup_orphans import setup_cleanup_scheduler  
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -16,8 +19,32 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     logger.info("Starting TDMS Analytics Service")
+
+    try:
+        logger.info("Initializing ClickHouse database...")
+        clickhouse_client = ClickHouseClient()
+        logger.info("ClickHouse database initialized successfully")
+        app.state.clickhouse_client = clickhouse_client
+        
+        # Setup automatic cleanup scheduler
+        scheduler = setup_cleanup_scheduler(clickhouse_client)
+        scheduler.start()
+        app.state.scheduler = scheduler
+        logger.info("Cleanup scheduler started (runs daily at 3:00 AM)")
+    except Exception as e:
+        logger.error(f"Failed to initialize services: {e}")
+        raise
+
     yield
+    
+    # Shutdown
     logger.info("Shutting down TDMS Analytics Service")
+    if hasattr(app.state, 'scheduler'):
+        app.state.scheduler.shutdown()
+        logger.info("Cleanup scheduler stopped")
+    if hasattr(app.state, 'clickhouse_client'):
+        app.state.clickhouse_client.close()
+        logger.info("ClickHouse connection closed")
 
 
 def create_app() -> FastAPI:
