@@ -7,7 +7,10 @@ import * as http from 'http';
 import * as https from 'https';
 import { IDataset, IDatasetMeta } from './interfaces/dataset.interface';
 import { IChannel, ITimeRange } from './interfaces/channel.interface';
-import { IHealthResponse, IApiConstraints } from './interfaces/api-response.interface';
+import {
+  IHealthResponse,
+  IApiConstraints,
+} from './interfaces/api-response.interface';
 import { AuthenticatedRequest } from 'src/common/auth/interfaces/authenticated-request';
 
 @Injectable()
@@ -28,10 +31,7 @@ export class DatasetService {
       'http://localhost:3001/dataset',
     );
 
-    this.gatewaySecret = this.configService.get<string>(
-      'GATEWAY_SECRET',
-      '',
-    );
+    this.gatewaySecret = this.configService.get<string>('GATEWAY_SECRET', '');
 
     if (!this.gatewaySecret) {
       this.logger.warn(
@@ -42,7 +42,9 @@ export class DatasetService {
     // Parse URL once au démarrage
     const parsedUrl = new URL(this.datasetServiceBaseUrl);
     this.backendHostname = parsedUrl.hostname;
-    this.backendPort = parseInt(parsedUrl.port) || (parsedUrl.protocol === 'https:' ? 443 : 8000);
+    this.backendPort =
+      parseInt(parsedUrl.port) ||
+      (parsedUrl.protocol === 'https:' ? 443 : 8000);
     this.isHttps = parsedUrl.protocol === 'https:';
 
     this.logger.log(
@@ -50,7 +52,10 @@ export class DatasetService {
     );
   }
 
-  private getUserInfo(req: AuthenticatedRequest): { sub: string; email?: string } {
+  private getUserInfo(req: AuthenticatedRequest): {
+    sub: string;
+    email?: string;
+  } {
     if (!req.user?.userinfo?.sub) {
       throw new HttpException(
         'User not authenticated',
@@ -64,7 +69,10 @@ export class DatasetService {
     };
   }
 
-  private buildAuthHeaders(userSub: string, userEmail?: string): Record<string, string> {
+  private buildAuthHeaders(
+    userSub: string,
+    userEmail?: string,
+  ): Record<string, string> {
     const headers: Record<string, string> = {
       'X-User-Sub': userSub,
       'X-Gateway-Secret': this.gatewaySecret,
@@ -98,7 +106,7 @@ export class DatasetService {
   // ========== Datasets (petit, pas besoin de streaming) ==========
   async listDatasets(req: AuthenticatedRequest): Promise<IDataset[]> {
     const { sub, email } = this.getUserInfo(req);
-    
+
     try {
       const response = await firstValueFrom(
         this.httpService.get<IDataset[]>(
@@ -118,14 +126,17 @@ export class DatasetService {
     }
   }
 
-  async getDatasetMeta(datasetId: string, req: AuthenticatedRequest): Promise<IDatasetMeta> {
+  async getDatasetMeta(
+    datasetId: string,
+    req: AuthenticatedRequest,
+  ): Promise<IDatasetMeta> {
     const { sub, email } = this.getUserInfo(req);
-    
+
     try {
       const response = await firstValueFrom(
         this.httpService.get<IDatasetMeta>(
           `${this.datasetServiceBaseUrl}/dataset_meta`,
-          { 
+          {
             params: { dataset_id: datasetId },
             headers: this.buildAuthHeaders(sub, email),
           },
@@ -133,7 +144,10 @@ export class DatasetService {
       );
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to get dataset meta for ${datasetId} (user: ${sub})`, error);
+      this.logger.error(
+        `Failed to get dataset meta for ${datasetId} (user: ${sub})`,
+        error,
+      );
       throw new HttpException(
         error.response?.data || 'Failed to get dataset metadata',
         error.response?.status || 500,
@@ -141,9 +155,12 @@ export class DatasetService {
     }
   }
 
-  async deleteDataset(datasetId: string, req: AuthenticatedRequest): Promise<{ message: string }> {
+  async deleteDataset(
+    datasetId: string,
+    req: AuthenticatedRequest,
+  ): Promise<{ message: string }> {
     const { sub, email } = this.getUserInfo(req);
-    
+
     try {
       const response = await firstValueFrom(
         this.httpService.delete<{ message: string }>(
@@ -155,7 +172,10 @@ export class DatasetService {
       );
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to delete dataset ${datasetId} (user: ${sub})`, error);
+      this.logger.error(
+        `Failed to delete dataset ${datasetId} (user: ${sub})`,
+        error,
+      );
       throw new HttpException(
         error.response?.data || 'Failed to delete dataset',
         error.response?.status || 500,
@@ -164,9 +184,12 @@ export class DatasetService {
   }
 
   // ========== Channels (petit, pas besoin de streaming) ==========
-  async listChannels(datasetId: string, req: AuthenticatedRequest): Promise<IChannel[]> {
+  async listChannels(
+    datasetId: string,
+    req: AuthenticatedRequest,
+  ): Promise<IChannel[]> {
     const { sub, email } = this.getUserInfo(req);
-    
+
     try {
       const response = await firstValueFrom(
         this.httpService.get<IChannel[]>(
@@ -189,9 +212,12 @@ export class DatasetService {
     }
   }
 
-  async getChannelTimeRange(channelId: string, req: AuthenticatedRequest): Promise<ITimeRange> {
+  async getChannelTimeRange(
+    channelId: string,
+    req: AuthenticatedRequest,
+  ): Promise<ITimeRange> {
     const { sub, email } = this.getUserInfo(req);
-    
+
     try {
       const response = await firstValueFrom(
         this.httpService.get<ITimeRange>(
@@ -245,7 +271,10 @@ export class DatasetService {
 
       const queryString = Object.entries(queryParams)
         .filter(([_, value]) => value !== undefined && value !== null)
-        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+        .map(
+          ([key, value]) =>
+            `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`,
+        )
         .join('&');
 
       const fullPath = queryString ? `${path}?${queryString}` : path;
@@ -284,7 +313,7 @@ export class DatasetService {
 
         let downloadedBytes = 0;
         let lastLoggedMB = 0;
-        const logIntervalMB = 50; 
+        const logIntervalMB = 50;
 
         proxyRes.on('data', (chunk: Buffer) => {
           downloadedBytes += chunk.length;

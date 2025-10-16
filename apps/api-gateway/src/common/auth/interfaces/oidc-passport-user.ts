@@ -15,4 +15,4 @@ export class IOidcPassportUser {
   access_token?: string;
   refresh_token?: string;
   userinfo!: IOidcUserinfo;
-};
+}

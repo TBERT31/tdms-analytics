@@ -15,7 +15,7 @@ export class HttpCacheInterceptor extends CacheInterceptor {
     const excludePrefixes = [
       '/api/metrics',
       '/api/alive',
-      '/auth/check-session',  
+      '/auth/check-session',
       '/auth/login',
       '/auth/logout',
       '/auth/callback',

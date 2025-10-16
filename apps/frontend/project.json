@@ -8,37 +8,23 @@
     "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "next dev",
+        "command": "npm run dev",
         "cwd": "apps/frontend"
       }
     },
     "build": {
-      "executor": "@nx/next:build",
+      "executor": "nx:run-commands",
       "outputs": ["{projectRoot}/.next"],
       "options": {
-        "outputPath": "dist/apps/frontend"
-      }
-    },
-    "start": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "next start",
+        "command": "npm run build",
         "cwd": "apps/frontend"
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint",
-      "outputs": ["{options.outputFile}"],
+      "executor": "nx:run-commands",
       "options": {
-        "lintFilePatterns": ["apps/frontend/**/*.{ts,tsx,js,jsx}"]
-      }
-    },
-    "test": {
-      "executor": "@nx/jest:jest",
-      "outputs": ["{workspaceRoot}/coverage/apps/frontend"],
-      "options": {
-        "jestConfig": "apps/frontend/jest.config.ts",
-        "passWithNoTests": true
+        "command": "npm run lint",
+        "cwd": "apps/frontend"
       }
     }
   }

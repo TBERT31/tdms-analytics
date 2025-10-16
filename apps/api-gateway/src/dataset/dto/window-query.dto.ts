@@ -1,4 +1,13 @@
-import { IsUUID, IsOptional, IsString, IsNumber, IsBoolean, IsEnum, Min, Max } from 'class-validator';
+import {
+  IsUUID,
+  IsOptional,
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsEnum,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DownsamplingMethod } from '../enums/downsampling-method.enum';
@@ -30,13 +39,21 @@ export class WindowQueryDto {
   @IsNumber()
   end_sec?: number;
 
-  @ApiPropertyOptional({ description: 'temps en secondes depuis le début', default: false })
+  @ApiPropertyOptional({
+    description: 'temps en secondes depuis le début',
+    default: false,
+  })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
   relative?: boolean;
 
-  @ApiPropertyOptional({ description: 'Nombre de points', default: 2000, minimum: 10, maximum: 100000 })
+  @ApiPropertyOptional({
+    description: 'Nombre de points',
+    default: 2000,
+    minimum: 10,
+    maximum: 100000,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -44,10 +61,10 @@ export class WindowQueryDto {
   @Max(100000)
   points?: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Méthode de downsampling',
     enum: DownsamplingMethod,
-    default: DownsamplingMethod.LTTB 
+    default: DownsamplingMethod.LTTB,
   })
   @IsOptional()
   @IsEnum(DownsamplingMethod)
@@ -93,9 +110,9 @@ export class WindowFilteredQueryDto {
   @Max(100000)
   points?: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     enum: DownsamplingMethod,
-    default: DownsamplingMethod.LTTB 
+    default: DownsamplingMethod.LTTB,
   })
   @IsOptional()
   @IsEnum(DownsamplingMethod)

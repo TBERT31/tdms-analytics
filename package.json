@@ -4,7 +4,7 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "nx run-many -t dev --projects=frontend,api-gateway,dataset-service --parallel",
+    "dev": "nx run-many -t dev --all --parallel",
     "dev:frontend": "nx dev frontend",
     "dev:gateway": "nx dev api-gateway",
     "dev:dataset": "nx dev dataset-service",

@@ -74,7 +74,7 @@ export class DatasetController {
   @ApiResponse({ status: 404, description: 'Dataset not found' })
   async getDatasetMeta(
     @Query('dataset_id', new ParseUUIDPipe()) datasetId: string,
-    @Req() req: AuthenticatedRequest
+    @Req() req: AuthenticatedRequest,
   ): Promise<DatasetMetaDto> {
     return this.datasetService.getDatasetMeta(datasetId, req);
   }
@@ -236,7 +236,7 @@ export class DatasetController {
         query,
         req.headers,
         res,
-        req, 
+        req,
       );
     } catch (error) {
       if (!res.headersSent) {

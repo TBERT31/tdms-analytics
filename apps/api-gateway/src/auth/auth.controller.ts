@@ -118,20 +118,22 @@ export class AuthController implements OnModuleInit {
 
     const cleanAuthStatus = {
       isAuthenticated: authStatus.isAuthenticated,
-      user: authStatus.isAuthenticated ? {
-        userinfo: {
-          email: authStatus.user?.userinfo?.email,
-          preferred_username: authStatus.user?.userinfo?.preferred_username,
-          name: authStatus.user?.userinfo?.name,
-          given_name: authStatus.user?.userinfo?.given_name,
-          family_name: authStatus.user?.userinfo?.family_name,
-          email_verified: authStatus.user?.userinfo?.email_verified,
-          sub: authStatus.user?.userinfo?.sub,
-          roles: authStatus.user?.userinfo?.roles || [],
-        }
-      } : null,
+      user: authStatus.isAuthenticated
+        ? {
+            userinfo: {
+              email: authStatus.user?.userinfo?.email,
+              preferred_username: authStatus.user?.userinfo?.preferred_username,
+              name: authStatus.user?.userinfo?.name,
+              given_name: authStatus.user?.userinfo?.given_name,
+              family_name: authStatus.user?.userinfo?.family_name,
+              email_verified: authStatus.user?.userinfo?.email_verified,
+              sub: authStatus.user?.userinfo?.sub,
+              roles: authStatus.user?.userinfo?.roles || [],
+            },
+          }
+        : null,
     };
-    
+
     if (cleanAuthStatus.isAuthenticated) {
       return res.status(HttpStatus.OK).json(cleanAuthStatus);
     } else {

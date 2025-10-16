@@ -1,37 +1,33 @@
-[project]
+[tool.poetry]
 name = "tdms-analytics"
 version = "0.1.0"
 description = "TDMS to ClickHouse Analytics Service"
-authors = [
-    {name = "Berteau Thomas", email = "berteau.thomas@hotmail.fr"}
-]
+authors = ["Berteau Thomas <berteau.thomas@hotmail.fr>"]
 readme = "README.md"
-requires-python = ">=3.12,<4.0"
-dependencies = [
-    "fastapi>=0.115.14,<0.116.0",
-    "uvicorn>=0.35.0,<0.36.0",
-    "clickhouse-connect>=0.8.18,<0.9.0",
-    "pydantic-settings>=2.10.1,<3.0.0",
-    "pandas>=2.0.0,<3.0.0",
-    "numpy (>=1.26,<2.0)",
-    "python-multipart>=0.0.9,<1.0.0",
-    "npTDMS>=1.8.0,<2.0.0",
-    "pyarrow>=21.0.0,<22.0.0",
-    "lttb (>=0.3.2,<0.4)",
-    "apscheduler (>=3.11.0,<4.0.0)"
-]
-
-[tool.poetry]
 packages = [{include = "tdms_analytics", from = "src"}]
 
-[tool.poetry.scripts]
-init_clickhouse = "tdms_analytics.scripts.init_clickhouse:main"
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+fastapi = ">=0.115.14,<0.116.0"
+uvicorn = ">=0.35.0,<0.36.0"
+clickhouse-connect = ">=0.8.18,<0.9.0"
+pydantic-settings = ">=2.10.1,<3.0.0"
+pandas = ">=2.0.0,<3.0.0"
+numpy = ">=1.26,<2.0"
+python-multipart = ">=0.0.9,<1.0.0"
+npTDMS = ">=1.8.0,<2.0.0"
+pyarrow = ">=21.0.0,<22.0.0"
+lttb = ">=0.3.2,<0.4"
+apscheduler = ">=3.11.0,<4.0.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.12.3"
 mypy = "^1.17.0"
 pytest = "^8.0.0"
 pytest-asyncio = "^0.23.0"
+
+[tool.poetry.scripts]
+init_clickhouse = "tdms_analytics.scripts.init_clickhouse:main"
 
 [tool.ruff]
 line-length = 88

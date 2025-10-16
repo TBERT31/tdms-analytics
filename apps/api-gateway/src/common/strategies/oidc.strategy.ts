@@ -179,7 +179,7 @@ export class OidcStrategy extends PassportStrategy(OAuth2Strategy, 'oidc') {
 
   private extractRoles(decodedAccessToken: IDecodedAccessToken): string[] {
     const rawRoles = this.extractRawRoles(decodedAccessToken);
-    return [...new Set(rawRoles)]; 
+    return [...new Set(rawRoles)];
   }
 
   private extractRawRoles(decodedAccessToken: IDecodedAccessToken): string[] {
@@ -213,8 +213,8 @@ export class OidcStrategy extends PassportStrategy(OAuth2Strategy, 'oidc') {
     for (const clientName in resourceAccess) {
       if (Object.hasOwn(resourceAccess, clientName)) {
         const clientData = resourceAccess[clientName];
-        if (this.hasValidRoles(clientData!)) {
-          rawRoles.push(...(clientData!.roles as string[]));
+        if (this.hasValidRoles(clientData)) {
+          rawRoles.push(...(clientData.roles as string[]));
         }
       }
     }
@@ -241,7 +241,7 @@ export class OidcStrategy extends PassportStrategy(OAuth2Strategy, 'oidc') {
         family_name: decodedAccessToken.family_name,
         email_verified: decodedAccessToken.email_verified,
         sub: decodedAccessToken.sub,
-        roles, 
+        roles,
       },
     };
   }

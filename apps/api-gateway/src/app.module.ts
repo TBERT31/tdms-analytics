@@ -11,12 +11,7 @@ import { UserModule } from './user/user.module';
 import { DatasetModule } from './dataset/dataset.module';
 
 @Module({
-  imports: [
-    CommonModule,
-    AuthModule,
-    UserModule,
-    DatasetModule,
-  ],
+  imports: [CommonModule, AuthModule, UserModule, DatasetModule],
   controllers: [AppController],
   providers: [
     AppService,

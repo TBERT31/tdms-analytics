@@ -100,7 +100,7 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
         timeout: configService.get<number>('HTTP_TIMEOUT', 300000),
         maxRedirects: configService.get<number>('HTTP_MAX_REDIRECTS', 5),
         maxBodyLength: Infinity,
-        maxContentLength: Infinity, 
+        maxContentLength: Infinity,
         validateStatus: (status) => status < 500,
       }),
       inject: [ConfigService],

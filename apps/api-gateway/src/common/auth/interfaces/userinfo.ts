@@ -1,11 +1,11 @@
 export interface UserInfo {
-  id_token?: string; 
-  access_token?: string; 
-  refresh_token?: string; 
+  id_token?: string;
+  access_token?: string;
+  refresh_token?: string;
   userinfo: {
     email?: string;
     preferred_username?: string;
     name?: string;
-    roles: string[]; 
+    roles: string[];
   };
 }

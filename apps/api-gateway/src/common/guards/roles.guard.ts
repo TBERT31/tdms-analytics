@@ -41,9 +41,7 @@ export class RolesGuard implements CanActivate {
     const userRoles: string[] = user.userinfo.roles;
 
     if (userRoles.length === 0 && requiredRoles.length > 0) {
-      throw new ForbiddenException(
-        'Insufficient roles for this resource.',
-      );
+      throw new ForbiddenException('Insufficient roles for this resource.');
     }
 
     const hasRole = requiredRoles.some((requiredRole) => {
@@ -51,9 +49,7 @@ export class RolesGuard implements CanActivate {
     });
 
     if (!hasRole) {
-      throw new ForbiddenException(
-        'Insufficient roles for this resource.',
-      );
+      throw new ForbiddenException('Insufficient roles for this resource.');
     }
 
     return true;
