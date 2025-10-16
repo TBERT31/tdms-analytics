@@ -1,0 +1,53 @@
+{
+  "name": "dataset-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/dataset-service/src",
+  "projectType": "application",
+  "tags": ["type:app", "scope:backend", "language:python"],
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "poetry run uvicorn tdms_analytics.app:app --reload --host 0.0.0.0 --port 8000",
+        "cwd": "apps/dataset-service"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "command": "poetry build",
+        "cwd": "apps/dataset-service"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "poetry run uvicorn tdms_analytics.app:app --host 0.0.0.0 --port 8000",
+        "cwd": "apps/dataset-service"
+      },
+      "dependsOn": ["build"]
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "poetry run pytest -v",
+        "cwd": "apps/dataset-service"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "poetry run ruff check src/",
+        "cwd": "apps/dataset-service"
+      }
+    },
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "poetry install",
+        "cwd": "apps/dataset-service"
+      }
+    }
+  }
+}

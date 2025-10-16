@@ -1,74 +1,200 @@
-# -----------------------------
-# OS / IDE / divers
-# -----------------------------
-.DS_Store
-Thumbs.db
-*.log
-logs/
-*.tmp
-*.swp
-*.swo
-.vscode/
-.idea/
-*.code-workspace
+# ============================================
+# NX MONOREPO
+# ============================================
+.nx/cache
+.nx/workspace-data
+.nx/installation
+dist/
+tmp/
 
-# -----------------------------
-# Secrets / env
-# -----------------------------
-.env
-.env.*            # .env.local, .env.development, etc.
-!.env.example     # garde un template d’ENV
+# ============================================
+# NODE / NPM
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
 
-# -----------------------------
-# Python (tdms-analytics-backend)
-# -----------------------------
+# Build outputs
+.next/
+.turbo/
+out/
+build/
+.vercel/
+.netlify/
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Cache
+.eslintcache
+.swc/
+*.tsbuildinfo
+
+# ============================================
+# PYTHON
+# ============================================
 __pycache__/
 *.py[cod]
-*.pyd
+*$py.class
 *.so
-*.dylib
+.Python
+
+# Virtual environments
 .venv/
 venv/
+env/
+ENV/
+.virtualenv/
+
+# Distribution / packaging
 .eggs/
 *.egg-info/
+*.egg
 dist/
 build/
+wheels/
+pip-wheel-metadata/
+
+# Testing
 .pytest_cache/
-.mypy_cache/
 .coverage
-coverage/
+.coverage.*
 htmlcov/
+.tox/
+.hypothesis/
+
+# Type checking / linting
+.mypy_cache/
+.pytype/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter
 .ipynb_checkpoints/
+*.ipynb
 
-# Artéfacts de l’app
-tdms-analytics-backend/db.sqlite
-tdms-analytics-backend/tmp/
-tdms-analytics-backend/data/**        # parquet générés
-!tdms-analytics-backend/data/.gitkeep # garde le dossier vide si besoin
+# ============================================
+# ENVIRONMENT / SECRETS
+# ============================================
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
 
-# -----------------------------
-# Node / Next.js (tdms-analytics-frontend)
-# -----------------------------
-tdms-analytics-frontend/node_modules/
-tdms-analytics-frontend/.next/
-tdms-analytics-frontend/.turbo/
-tdms-analytics-frontend/out/
-tdms-analytics-frontend/.vercel/
-tdms-analytics-frontend/.eslintcache
-tdms-analytics-frontend/.swc/
-tdms-analytics-frontend/coverage/
+# ============================================
+# IDEs / EDITORS
+# ============================================
+# VSCode
+.vscode/
+*.code-workspace
 
-# (Ne PAS ignorer package-lock.json — commit-le)
-# !tdms-analytics-frontend/package-lock.json  # <- juste un rappel, pas nécessaire
+# JetBrains (WebStorm, PyCharm, IntelliJ)
+.idea/
+*.iml
+*.iws
+*.ipr
 
-# -----------------------------
-# Données lourdes / binaires
-# -----------------------------
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ============================================
+# OS
+# ============================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# ============================================
+# LOGS
+# ============================================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# ============================================
+# DOCKER / INFRASTRUCTURE
+# ============================================
+# Volumes Docker (données persistées localement)
+infra/redis-data/
+infra/clickhouse-data/
+infra/keycloak-data/
+
+# ============================================
+# DATA FILES (lourds ou sensibles)
+# ============================================
 *.parquet
 *.tdms
 *.mat
 *.csv.zip
+*.hdf5
+*.h5
 
-# Autorise éventuellement un répertoire d’exemples versionnés
-# (si tu veux garder un tout petit fichier de démo dans le repo)
-!samples/**
+# Autoriser les fichiers samples si tu veux des exemples versionnés
+!samples/**/*.tdms
+!samples/**/*.parquet
+
+# ============================================
+# TEMPORARY FILES
+# ============================================
+*.tmp
+*.temp
+.tmp/
+temp/
+
+# ============================================
+# TESTING / CI
+# ============================================
+test-output/
+.test-reports/
+junit.xml
+
+# ============================================
+# AI ASSISTANTS CONFIG (optionnel)
+# ============================================
+.cursor/
+.github/instructions/
+
+# ============================================
+# MISC
+# ============================================
+*.bak
+*.orig
+.cache/

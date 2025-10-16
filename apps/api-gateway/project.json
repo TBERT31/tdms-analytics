@@ -1,0 +1,47 @@
+{
+  "name": "api-gateway",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/api-gateway/src",
+  "projectType": "application",
+  "tags": ["type:app", "scope:backend"],
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "nest start --watch",
+        "cwd": "apps/api-gateway"
+      }
+    },
+    "build": {
+      "executor": "@nx/nest:build",
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "outputPath": "dist/apps/api-gateway",
+        "main": "apps/api-gateway/src/main.ts",
+        "tsConfig": "apps/api-gateway/tsconfig.app.json"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node dist/apps/api-gateway/main.js"
+      },
+      "dependsOn": ["build"]
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/api-gateway/**/*.ts"]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/apps/api-gateway"],
+      "options": {
+        "jestConfig": "apps/api-gateway/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}
