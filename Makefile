@@ -18,8 +18,9 @@ help:
 	@echo "  make clean      - Nettoyer les caches"
 
 install:
-	npm install
-	cd apps/dataset-service && poetry install
+	cd apps/frontend && npm install
+	cd ../api-gateway && npm install
+	cd ../dataset-service && poetry install
 
 infra:
 	$(DOCKER_COMPOSE) up -d redis clickhouse keycloak
