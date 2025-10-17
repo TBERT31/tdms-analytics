@@ -35,28 +35,16 @@
       "cache": true,
       "dependsOn": ["^build"]
     },
-    "lint": {
-      "inputs": ["default"],
-      "cache": true
-    },
-    "dev": {
-      "cache": false
-    },
-    "start": {
-      "cache": false,
-      "dependsOn": ["build"]
-    }
+    "lint": { "inputs": ["default"], "cache": true },
+    "dev": { "cache": false },
+    "start": { "cache": false, "dependsOn": ["build"] }
   },
-  "affected": {
-    "defaultBase": "main"
-  },
+  "affected": { "defaultBase": "main" },
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
       "options": {
-        "typecheck": {
-          "targetName": "typecheck"
-        },
+        "typecheck": { "targetName": "typecheck" },
         "build": {
           "targetName": "build",
           "configName": "tsconfig.lib.json",
@@ -67,15 +55,9 @@
     },
     {
       "plugin": "@nx/eslint/plugin",
-      "options": {
-        "targetName": "eslint:lint"
-      }
+      "options": { "targetName": "eslint:lint" }
     },
-    {
-      "plugin": "@nx/jest/plugin",
-      "options": {
-        "targetName": "test"
-      }
-    }
-  ]
+    { "plugin": "@nx/jest/plugin", "options": { "targetName": "test" } }
+  ],
+  "nxCloudId": "68f1fd8082f803332632a3b8"
 }
